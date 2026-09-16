@@ -974,6 +974,145 @@
     X: { watch: '未分级，先补级别' }
   };
 
+  /* ================= 工具九：爆款样本采集清单 ================= */
+  var CL_SCENES = ['日常使用', '新房入住', '租房改造', '通勤路上', '出差旅行', '换季整理', '节日送礼', '宿舍生活', '小户型', '搬家前后'];
+  var CL_PAINS = ['不知道怎么选', '买回来闲置', '用起来麻烦', '怕踩坑', '占地方', '价格不透明'];
+  var CL_FIELDS = [
+    ['笔记标题', '判断钩子和关键词埋点在哪', '原文照抄，一个字别改', '必采'],
+    ['点赞 / 收藏 / 评论', '收藏高说明有用，评论高说明有争议或有需求', '三个数字分开记', '必采'],
+    ['首图形式', '封面是最容易被复用的部分', '填：前后对比 / 结果特写 / 清单罗列 / 人出镜 / 场景实拍 / 纯文字', '必采'],
+    ['发布时间', '找自己的发布节奏要用', '填日期即可', '必采'],
+    ['话题标签', '看流量是从哪个入口进来的', '原文照抄', '必采'],
+    ['正文开头两句', '判断第一眼怎么留住人', '概括成一句话', '必采'],
+    ['博主粉丝量级', '判断这篇的参考价值 —— 大号和小号的打法不同', '填区间：1万以下 / 1-10万 / 10万+', '建议'],
+    ['有没有挂商品', '判断它的商业化程度', '填：无 / 挂链接 / 引导私信 / 置顶有', '建议'],
+    ['评论区高频问题', '这是最现成的下一批选题', '摘最多 3 条原话', '建议'],
+    ['这篇我不采的理由', '防止样本全是「看起来很厉害但用不上」', '一句话', '建议']
+  ];
+  var CL_TAGS = [
+    ['内容形式', '图文 / 视频 / 合集 / 清单 / 测评 / 教程 / 答疑 / 对比', '判断这类内容在这个类目里的主流形态'],
+    ['切入角度', '痛点切入 / 场景切入 / 人群切入 / 价格切入 / 避坑切入', '用来横向对比哪种角度更容易起'],
+    ['封面类型', '前后对比 / 结果特写 / 清单罗列 / 人出镜 / 场景实拍', '直接整理成自己的封面模板库'],
+    ['商品化程度', '无商品 / 挂链接 / 引导私信 / 置顶有', '判断这条能不能拿来判断转化路径'],
+    ['可用性', '可直接改 / 换个场景能用 / 仅参考 / 用不上', '样本库最有价值的一列，逼你每次都做判断']
+  ];
+
+  function uniq(a) {
+    var seen = {}, out = [];
+    a.forEach(function (x) {
+      var t = String(x || '').trim();
+      if (t && !seen[t]) { seen[t] = 1; out.push(t); }
+    });
+    return out;
+  }
+
+  function runCollect(v) {
+    var prod = v.cl_prod || '我的产品';
+    var aud = v.cl_aud || '目标人群';
+    var seeds = words(v.cl_kw);
+    var scenes = words(v.cl_scene);
+    if (!scenes.length) scenes = CL_SCENES.slice(0, 6);
+    var pains = words(v.cl_pain);
+    if (!pains.length) pains = CL_PAINS.slice(0, 4);
+    var total = num(v.cl_n);
+    if (!isFinite(total) || total < 1) total = 20;
+    if (total > 60) total = 60;
+
+    /* 五组关键词 */
+    var groups = [
+      { n: '人群词', why: '找到「谁在说这件事」，用来圈定说话的人而非商品', ws: [aud, aud + '好物', aud + '必看', '适合' + aud, aud + '避坑'] },
+      { n: '场景词', why: '同一个产品在不同场景下的说法完全不同', ws: scenes.slice(0, 5).concat(scenes.length > 5 ? [] : ['']) },
+      { n: '痛点词', why: '用户在搜索框里打的是困扰，不是产品名', ws: pains.slice(0, 5).concat(pains.length > 5 ? [] : ['']) },
+      { n: '商品词', why: '最接近成交意图，用来找直接竞品', ws: [prod, prod + '推荐', prod + '测评', prod + '怎么选', prod + '避坑'] },
+      { n: '长尾词', why: '竞争小、意图明确，新手最容易在这里找到样本', ws: [prod + ' ' + scenes[0], scenes[0] + ' ' + (pains[0] || '怎么选'), aud + '用的' + prod] }
+    ];
+    groups.forEach(function (g) { g.ws = uniq(g.ws).slice(0, 5); });
+    if (seeds.length) {
+      groups[3].ws = uniq(seeds.concat(groups[3].ws)).slice(0, 5);
+    }
+
+    /* 本周任务 */
+    var taskWords = uniq(groups[3].ws.concat(groups[4].ws, groups[1].ws, groups[0].ws));
+    var perWord = 3;
+    var needWords = Math.max(1, Math.ceil(total / perWord));
+    var rows = [], left = total, i;
+    for (i = 0; i < needWords && left > 0; i++) {
+      var take = Math.min(perWord, left);
+      left -= take;
+      rows.push([
+        String(i + 1),
+        '**' + taskWords[i % taskWords.length] + '**',
+        take + ' 篇',
+        CL_FIELDS.filter(function (f) { return f[3] === '必采'; }).map(function (f) { return f[0]; }).join('、'),
+        '☐'
+      ]);
+    }
+
+    var kwRows = [];
+    groups.forEach(function (g) {
+      g.ws.forEach(function (w, idx) {
+        kwRows.push([idx === 0 ? g.n : '', w, g.why]);
+      });
+    });
+
+    var blocks = [];
+    blocks.push({
+      t: 'verdict', h: '这周采什么', level: 'low', levelTxt: '目标 ' + total + ' 篇',
+      body: '按每个搜索词采 3 篇算，这周需要 ' + needWords + ' 个词、共 ' + total + ' 篇。别一次铺太多词 —— 采 10 篇能看完的，比采 100 篇堆在表里有用得多。',
+      why: '样本库的意义不在于大，在于你回头翻的时候每一条都能说出「它为什么好」。',
+      do: '先把「商品词」那组采完，它们离成交最近，最容易看出这个赛道的打法。'
+    });
+
+    blocks.push({
+      t: 'list', h: '五组关键词',
+      items: groups.map(function (g) {
+        return { title: g.n + '：' + g.ws.join(' / '), desc: g.why };
+      })
+    });
+
+    blocks.push({ t: 'table', h: '本周采集任务', head: ['#', '搜索词', '目标篇数', '必须记录的字段', '打勾'], rows: rows });
+
+    blocks.push({
+      t: 'table', h: '每条样本要采集哪些字段',
+      head: ['字段', '为什么采它', '怎么记', '是否必采'],
+      rows: CL_FIELDS.map(function (f) {
+        return [f[0], f[1], f[2], f[3] === '必采' ? '**必采**' : f[3]];
+      })
+    });
+
+    blocks.push({
+      t: 'table', h: '采回来怎么打标签',
+      head: ['标签维度', '可选值', '打它的用处'],
+      rows: CL_TAGS.map(function (t) { return [t[0], t[1], t[2]]; })
+    });
+
+    blocks.push({
+      t: 'list', h: '采集纪律',
+      items: [
+        { title: '一次最多扫 20 分钟', desc: '刷着刷着变成看别人内容去了，是这三件事里最常见的翻车方式。定个闹钟，到点就停。' },
+        { title: '只采你这个类目近 3 个月的内容', desc: '一年前的爆款现在未必还能跑，平台的推荐逻辑和用户的口味都变了。' },
+        { title: '每采 10 篇就回头标一次「可用性」', desc: '攒到 100 篇再判断，你已经忘了当时为什么存它。' },
+        { title: '留出 3 成额度给「没爆」的内容', desc: '只看爆款会让你以为每条都能爆。记下对手数据明显偏低的笔记，那才是市场的边界所在。' }
+      ]
+    });
+
+    blocks.push({
+      t: 'para', h: '这一步的边界',
+      text: '这张清单只回答「该采什么、采回来怎么记」 —— 它不会替你去平台抓数据，也不需要你登录账号。' +
+        '真实数据请用平台自带的创作中心和专业号后台、公开可见内容的手动整理，或有授权的数据服务来完成；' +
+        '不要用来路不明的爬虫批量抓取，账号被限流或封禁的代价远大于省下的时间。'
+    });
+
+    return {
+      blocks: blocks,
+      tables: [
+        { name: '本周采集任务', head: ['#', '搜索词', '目标篇数', '必须记录的字段', '打勾'], rows: rows },
+        { name: '五组关键词', head: ['分组', '关键词', '这组用来干什么'], rows: kwRows },
+        { name: '采集字段清单', head: ['字段', '为什么采它', '怎么记', '是否必采'], rows: CL_FIELDS.map(function (f) { return [f[0], f[1], f[2], f[3]]; }) }
+      ]
+    };
+  }
+
   /* ================= 工具定义 ================= */
   var TOOLS = {
     title: {
@@ -1076,6 +1215,19 @@
         { k: 'rb_focus', label: '本周要盯的一件事（选填）', ph: '例：S 级账号有没有开始做视频合集' }
       ],
       run: runRival
+    },
+    collect: {
+      name: '采集清单',
+      hint: '不替你抓数据，只回答「该采什么、采回来怎么记」。每周开工前先跑一次。',
+      fields: [
+        { k: 'cl_prod', label: '产品 / 服务', ph: '例：抽屉分隔盒', req: true },
+        { k: 'cl_aud', label: '目标人群', ph: '例：租房的年轻女生', req: true },
+        { k: 'cl_n', label: '本周目标篇数', ph: '例：20', req: true, small: '建议 15-30 篇，多了看不完' },
+        { k: 'cl_kw', label: '已知关键词（逗号分隔，选填）', ph: '例：收纳分区，抽屉整理', small: '会优先塞进商品词组' },
+        { k: 'cl_scene', label: '场景词（逗号分隔，选填）', ph: '例：租房改造，换季整理' },
+        { k: 'cl_pain', label: '痛点词（逗号分隔，选填）', ph: '例：抽屉一拉就乱' }
+      ],
+      run: runCollect
     }
   };
 
@@ -1097,6 +1249,23 @@
     box.className = 'st-status on' + (ok ? ' ok' : '');
   }
 
+  /* 指令库同步过来的变量（只用于预填空字段，不写进本地存档） */
+  var FILLVARS = null;
+  document.addEventListener('xhs:fill', function (e) {
+    FILLVARS = e.detail || null;
+    renderForm();
+  });
+
+  function autoFill(f) {
+    var F = FILLVARS || {};
+    if (f.k.indexOf('prod') > -1) return F['产品'] || '';
+    if (f.k.indexOf('aud') > -1) return F['人群'] || '';
+    if (f.k.indexOf('price') > -1) return F['客单价'] || '';
+    if (f.k.indexOf('bimp') > -1) return F['基线曝光'] || '';
+    if (f.k.indexOf('pain') > -1) return F['痛点'] || '';
+    return '';
+  }
+
   function renderTabs() {
     tabBox.innerHTML = Object.keys(TOOLS).map(function (k) {
       return '<button class="st-tab' + (k === curKey ? ' is-on' : '') + '" data-k="' + k + '">' + esc(TOOLS[k].name) + '</button>';
@@ -1108,7 +1277,8 @@
     formBox.innerHTML =
       '<h4>' + esc(t.name) + '</h4><p class="st-hint">' + esc(t.hint) + '</p>' +
       t.fields.map(function (f) {
-        var val = load('xhs.form.' + curKey, {})[f.k] || '';
+        var saved = load('xhs.form.' + curKey, {})[f.k] || '';
+        var val = saved || autoFill(f);
         var head = '<label class="st-field"><span>' + esc(f.label) + (f.req ? ' *' : '') + (f.small ? ' <small>' + esc(f.small) + '</small>' : '') + '</span>';
         if (f.type === 'textarea') {
           return head +
@@ -1167,19 +1337,34 @@
     return v;
   }
 
+  function tablesOf(res) {
+    if (res.tables && res.tables.length) return res.tables;
+    if (res.table) return [{ name: '结果', head: res.table.head, rows: res.table.rows }];
+    return [];
+  }
+
   function renderResult(res) {
-    lastOutput = { text: blocksToText(res.blocks, TOOLS[curKey].name), table: res.table, title: TOOLS[curKey].name };
+    var tbs = tablesOf(res);
+    lastOutput = { text: blocksToText(res.blocks, TOOLS[curKey].name), tables: tbs, title: TOOLS[curKey].name };
     resBox.innerHTML =
       '<h4>' + esc(TOOLS[curKey].name) + ' · 结果</h4><p class="st-hint">本地引擎生成，可直接改改就用；也可以导出成 Markdown 或表格。</p>' +
       '<div class="st-out">' + renderBlocks(res.blocks) + '</div>' +
       '<div class="st-toolbar">' +
         '<button class="st-mini" id="exMd">导出 Markdown</button>' +
-        (res.table ? '<button class="st-mini" id="exCsv">导出 CSV（排期表）</button>' : '') +
+        tbs.map(function (tb, i) {
+          return '<button class="st-mini"' + (i === 0 ? ' id="exCsv"' : '') + ' data-csv="' + i + '">导出 CSV（' + esc(tb.name) + '）</button>';
+        }).join('') +
         '<button class="st-mini" id="exCopy">复制全文</button>' +
         '<button class="st-mini" id="exSave">存入我的记录</button>' +
       '</div>';
     $('exMd').addEventListener('click', function () { download(lastOutput.text, (lastOutput.title || '结果') + '.md', 'text/markdown'); });
-    if (res.table) $('exCsv').addEventListener('click', function () { download(rowsToCSV(res.table.head, res.table.rows), (lastOutput.title || '结果') + '.csv', 'text/csv'); });
+    Array.prototype.forEach.call(resBox.querySelectorAll('[data-csv]'), function (btn) {
+      btn.addEventListener('click', function () {
+        var tb = lastOutput.tables[+btn.getAttribute('data-csv')];
+        if (!tb) return;
+        download(rowsToCSV(tb.head, tb.rows), (lastOutput.title || '结果') + '-' + tb.name + '.csv', 'text/csv');
+      });
+    });
     $('exCopy').addEventListener('click', function () { copy(lastOutput.text, this); });
     $('exSave').addEventListener('click', function () {
       saveRecord(curKey, lastOutput.title, lastOutput.text);
@@ -1252,7 +1437,7 @@
         '<h4>' + esc(TOOLS[curKey].name) + ' · AI 精修版</h4><p class="st-hint">下面是 AI 输出，务必通读一遍再用 —— 特别是涉及数字和承诺的地方。</p>' +
         '<div class="st-out"><div class="st-block"><div class="ti-note" style="white-space:pre-wrap">' + esc(txt) + '</div></div></div>' +
         '<div class="st-toolbar"><button class="st-mini" id="aiCopy">复制全文</button><button class="st-mini" id="aiSave">存入我的记录</button><button class="st-mini" id="aiBack">回到本地方案</button></div>';
-      lastOutput = { text: txt, table: res.table, title: TOOLS[curKey].name + ' · AI 精修版' };
+      lastOutput = { text: txt, tables: tablesOf(res), title: TOOLS[curKey].name + ' · AI 精修版' };
       $('aiCopy').addEventListener('click', function () { copy(txt, this); });
       $('aiSave').addEventListener('click', function () { saveRecord(curKey, lastOutput.title, txt); renderRecords(); this.textContent = '已存入'; });
       $('aiBack').addEventListener('click', function () { renderResult(res); });

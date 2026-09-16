@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>红算子 · 小红书运营 AI 工作台</title>
 <meta name="description" content="把重复操作交给 AI，把判断留给自己。小红书运营的采集雷达、内容工坊、转化路径与四阶段成长路线图。">
-<link rel="stylesheet" href="style.css?v=2">
-<link rel="stylesheet" href="studio.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="studio.css?v=3">
 <noscript><style>.reveal{opacity:1;transform:none;}</style></noscript>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23FF2442'/><path d='M9 21l14-10M9 11h14v10' stroke='%23fff' stroke-width='2.2' fill='none' stroke-linecap='round'/></svg>">
 </head>
@@ -477,7 +477,7 @@
     <div class="sec-head reveal">
       <span class="kicker">06 / 指令库</span>
       <h2>把地图上每一步，变成一句话</h2>
-      <p class="sub">下面 12 条指令可以直接复制，粘到任意 AI 对话框里跑 —— 包括 WorkBuddy、Codex、Claude、ChatGPT。<strong>先填一次你的账号信息，指令会自动套用。</strong></p>
+      <p class="sub">下面 13 条指令可以直接复制，粘到任意 AI 对话框里跑 —— 包括 WorkBuddy、Codex、Claude、ChatGPT。<strong>先填一次你的账号信息，指令会自动套用。</strong></p>
     </div>
 
     <div class="pm-vars reveal">
@@ -490,6 +490,8 @@
         <label><span>目标人群</span><input type="text" id="vAud" placeholder="例：25-30 岁租房女生"></label>
         <label><span>产品 / 服务</span><input type="text" id="vProd" placeholder="例：抽屉分隔盒套装"></label>
         <label><span>当前进度</span><input type="text" id="vStatus" placeholder="例：发了 12 篇，小眼睛 300 左右"></label>
+        <label><span>客单价（元）</span><input type="text" id="vPrice" placeholder="例：89"></label>
+        <label><span>账号基线曝光</span><input type="text" id="vBase" placeholder="例：3000"></label>
       </div>
     </div>
 
@@ -504,6 +506,10 @@
           <button class="pm-copy" id="pmCopy">复制指令</button>
         </div>
         <pre class="pm-code" id="pmCode"></pre>
+        <div class="pm-studio" id="pmStudio" hidden>
+          <span>这个工具在工作台里已经能直接跑，不用复制粘贴。</span>
+          <button class="pm-go" id="pmGo">打开工作台 →</button>
+        </div>
         <div class="pm-foot">
           <span class="pm-tip" id="pmTip"></span>
           <span class="pm-reset" id="pmReset">清空填写的信息</span>
@@ -519,8 +525,8 @@
     <div class="sec-head reveal">
       <span class="kicker">07 / 工作台</span>
       <h2>不用复制粘贴，直接在浏览器里做完</h2>
-      <p class="sub">八个工具，左边填右边出。<strong>本地引擎先把结构与框架跑出来，不联网、不要 key、不给钱</strong>；想再润色，填上你自己的 API key 点「用 AI 精修」。key 只存在这台机器的浏览器里。</p>
-      <p class="sub" style="margin-top:-6px">前三件管「写什么」—— 标题、主页、选题；<strong>后五件管「跑不动了怎么办」</strong> —— 数据卡在哪一层、这周该加码还是淘汰、客单价该走多长的成交路径、评论区怎么接、对手怎么分级盯。</p>
+      <p class="sub">九个工具，左边填右边出。<strong>本地引擎先把结构与框架跑出来，不联网、不要 key、不给钱</strong>；想再润色，填上你自己的 API key 点「用 AI 精修」。key 只存在这台机器的浏览器里。</p>
+      <p class="sub" style="margin-top:-6px">前三件管「写什么」—— 标题、主页、选题；<strong>后六件管「跑不动了怎么办」</strong> —— 数据卡在哪一层、这周该加码还是淘汰、客单价该走多长的成交路径、评论区怎么接、对手怎么分级盯、这周该采集哪些样本。</p>
     </div>
 
     <div class="st-setup reveal">
@@ -653,7 +659,7 @@
   </div>
 </footer>
 
-<script src="app.js?v=2"></script>
-<script src="studio.js?v=2"></script>
+<script src="app.js?v=3"></script>
+<script src="studio.js?v=3"></script>
 </body>
 </html>
