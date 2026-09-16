@@ -64,6 +64,15 @@
             }).join('') + '</tr>';
           }).join('') + '</tbody></table></div></div>';
       }
+      if (b.t === 'verdict') {
+        return '<div class="st-block"><h5>' + esc(b.h) + '</h5>' +
+          '<div class="st-verdict ' + (b.level || 'mid') + '">' +
+            '<div class="sv-top"><span class="sv-tag">' + esc(b.levelTxt || '结论') + '</span>' +
+            '<b>' + esc(b.body) + '</b></div>' +
+            (b.why ? '<div class="sv-why">' + esc(b.why) + '</div>' : '') +
+            (b.do ? '<div class="sv-do"><i>下一步只做这一件</i>' + esc(b.do) + '</div>' : '') +
+          '</div></div>';
+      }
       if (b.t === 'list') {
         return '<div class="st-block"><h5>' + esc(b.h) + '</h5>' + b.items.map(function (it) {
           return '<div class="dg-item"><span class="dg-flag pass">·</span><span class="dg-body"><b>' + esc(it.title) +
@@ -94,6 +103,10 @@
         b.rows.forEach(function (r) {
           out += '| ' + r.map(function (c) { return String(c).replace(/\*\*/g, '').replace(/\[(\d+)\]/g, '（系列$1）'); }).join(' | ') + ' |\n';
         });
+      } else if (b.t === 'verdict') {
+        out += '【' + (b.levelTxt || '结论') + '】' + b.body + '\n';
+        if (b.why) out += '　依据：' + b.why + '\n';
+        if (b.do) out += '　下一步：' + b.do + '\n';
       } else if (b.t === 'list') {
         b.items.forEach(function (it) { out += '- ' + it.title + '：' + it.desc + '\n'; });
       } else if (b.text) {
@@ -387,6 +400,580 @@
     return { blocks: blocks, table: { head: ['日期', '选题', '角度/场景', '本条要验证什么', '成功信号'], rows: rows } };
   }
 
+  /* ================= 第二批：数值与判定工具 ================= */
+  function num(s) {
+    var t = String(s == null ? '' : s).replace(/[,，\s]/g, '');
+    var m = /([\d.]+)\s*(万|w|W|k|K)?/.exec(t);
+    if (!m) return NaN;
+    var n = parseFloat(m[1]);
+    if (!isFinite(n)) return NaN;
+    var u = m[2];
+    if (u === '万' || u === 'w' || u === 'W') n = n * 10000;
+    else if (u === 'k' || u === 'K') n = n * 1000;
+    return n;
+  }
+
+  function fmtN(n) {
+    if (!isFinite(n)) return '未填';
+    return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function pct1(p) { return isFinite(p) ? (Math.round(p * 10) / 10) + '%' : '未填'; }
+
+  function lvl(v, line) {
+    if (!isFinite(v) || !isFinite(line) || line <= 0) return 'na';
+    var r = v / line;
+    return r >= 1.3 ? 'up' : (r >= 0.8 ? 'flat' : 'down');
+  }
+
+  var GRADE_TXT = { up: '高于对照线', flat: '接近对照线', down: '低于对照线', na: '数据不足' };
+  var DEF_LINE = { ctr: 5, stay: 20, inter: 3, pc: 10, deal: 10 };
+
+  function splitLines(s) {
+    return String(s || '').split(/\r?\n/).map(function (x) { return x.trim(); }).filter(function (x) { return x.length > 0; });
+  }
+
+  function splitRow(s) {
+    return String(s || '').split(/[|｜\t]|[ ]{2,}|[，,](?=\s*\d)/).map(function (x) { return x.trim(); }).filter(function (x) { return x.length > 0; });
+  }
+
+  /* ================= 工具四：发布回查 ================= */
+  function runDiag(v) {
+    var imp = num(v.dg_imp), click = num(v.dg_click), stay = num(v.dg_stay),
+      inter = num(v.dg_inter), pc = num(v.dg_pc), deal = num(v.dg_deal),
+      bImp = num(v.dg_bimp), bCtr = num(v.dg_bctr);
+
+    var ctrPp = (isFinite(click) && isFinite(imp) && imp > 0) ? click / imp * 100 : NaN;
+    var interPp = (isFinite(inter) && isFinite(imp) && imp > 0) ? inter / imp * 100 : NaN;
+    var pcPp = (isFinite(pc) && isFinite(click) && click > 0) ? pc / click * 100 : NaN;
+    var dealPp = (isFinite(deal) && isFinite(pc) && pc > 0) ? deal / pc * 100 : NaN;
+    var ctrLine = (isFinite(bCtr) && bCtr > 0) ? bCtr : DEF_LINE.ctr;
+
+    var layers = [
+      {
+        k: '① 曝光：系统给不给量', val: fmtN(imp),
+        line: (isFinite(bImp) && bImp > 0) ? fmtN(bImp) + '（你的基线）' : '未填基线',
+        chk: (isFinite(bImp) && bImp > 0 && isFinite(imp)) ? lvl(imp, bImp) : 'na',
+        note: '曝光比账号同类内容低，说明这条在分发阶段就停了，问题在选题方向和首图，不在正文。',
+        body: '卡在分发层：曝光明显低于你自己的同类内容，系统没有继续把它推出去。',
+        act: '先别改正文。换一个切入场景，或者换一张在小图尺寸下也能一眼看懂的首图，同一个产品再发一条做对照。'
+      },
+      {
+        k: '② 点击：封面 + 标题', val: pct1(ctrPp),
+        line: pct1(ctrLine) + (isFinite(bCtr) && bCtr > 0 ? '（你的基线）' : '（通用参考）'),
+        chk: lvl(ctrPp, ctrLine),
+        note: '曝光有了但点进来的人少，这是典型的封面和标题没在信息流里说清「这条跟你有什么关系」。',
+        body: '卡在封标组合：看到的人不少，愿意点开的人不够。',
+        act: '只改封面首图和标题，正文一个字别动再发。标题把核心场景词放进前 18 个字，封面换成「使用前后」或「结果特写」。'
+      },
+      {
+        k: '③ 停留：前两秒接不接得住', val: isFinite(stay) ? stay + ' 秒' : '未填',
+        line: DEF_LINE.stay + ' 秒（通用参考）', chk: lvl(stay, DEF_LINE.stay),
+        note: '点开了却很快划走，多半是开头在自我介绍，或者直接甩参数，用户第一眼没拿到「对我有什么用」。',
+        body: '卡在开头承接：人点进来了，但没有留下来。',
+        act: '重写开头两行。第一行直接给结果或结论，第二行讲它解决了什么具体问题，把自我介绍删掉。'
+      },
+      {
+        k: '④ 互动：值不值得收藏或说点什么', val: pct1(interPp),
+        line: pct1(DEF_LINE.inter) + '（赞藏评/曝光）', chk: lvl(interPp, DEF_LINE.inter),
+        note: '看完了没点赞没收藏也没评论，内容讲清楚了，但没给出「值得存下来」或「想问一句」的理由。',
+        body: '卡在内容价值：看完了，但没有留下任何动作。',
+        act: '在结尾加一个明确的承接：一份清单、一个避坑点、或者一句「我有一个细节没写进来，想知道的评论区扣 1」。'
+      },
+      {
+        k: '⑤ 商品点击：内容有没有把商品接住', val: pct1(pcPp),
+        line: pct1(DEF_LINE.pc) + '（商品点击/点击）', chk: lvl(pcPp, DEF_LINE.pc),
+        note: '内容有人看但没人点商品，通常是商品出现得太晚，或者讲了半天没说清它到底解决哪一个问题。',
+        body: '卡在内容到商品的衔接：内容跑得动，但没有把人送进商品页。',
+        act: '把商品的出场位置提前到正文三分之一处，并用一句话点明「就是它解决了前面那个问题」，结尾只留一个动作。'
+      },
+      {
+        k: '⑥ 成交：商品页能不能接住', val: pct1(dealPp),
+        line: pct1(DEF_LINE.deal) + '（成交/商品点击）', chk: lvl(dealPp, DEF_LINE.deal),
+        note: '点了商品却不买，问题已经不在内容了 —— 是价格、详情页信息、评价和顾虑没有被处理掉。',
+        body: '卡在商品承接：愿意点进来的人不少，但没有转化成订单。',
+        act: '逐项检查商品页：价格有没有竞争力、主图有没有说清用法、评价和问答里有没有覆盖用户最担心的那件事。'
+      }
+    ];
+
+    var rows = layers.map(function (l) {
+      return [l.k, l.val, l.line, GRADE_TXT[l.chk], l.note];
+    });
+
+    var blocks = [];
+    var hit = null;
+    layers.forEach(function (l) { if (!hit && l.chk === 'down') hit = l; });
+
+    if (hit) {
+      blocks.push({
+        t: 'verdict', h: '先只处理这一个地方', level: 'high', levelTxt: '最上游的卡点',
+        body: hit.body,
+        why: '判定依据（' + hit.k.split('：')[0] + '）：' + hit.val + '，对照线 ' + hit.line + '。漏斗上游不通的时候，改下游等于白改。',
+        do: hit.act
+      });
+    } else {
+      blocks.push({
+        t: 'verdict', h: '这一条的判断', level: 'low', levelTxt: '没有单点硬伤',
+        body: '填进来的数据里没有出现明显低于对照线的环节，这一条可以先保持，不要整篇推翻。',
+        why: '已经核对的层级都在对照线附近或以上。',
+        do: '把它复制到同一个场景里再发一条，验证这个数据是不是能稳定复现 —— 一条跑得好说明不了问题，能重复才算模型。'
+      });
+    }
+
+    blocks.push({ t: 'table', h: '漏斗逐层对照（跟你自己比，不和行业大号比）', head: ['漏斗层级', '你的数据', '对照线', '判定', '这一层在说什么'], rows: rows });
+
+    var missing = [];
+    if (!isFinite(bImp)) missing.push('账号同类内容的平均曝光');
+    if (!isFinite(ctrPp)) missing.push('点击数（用来算点击率）');
+    if (!isFinite(stay)) missing.push('平均阅读时长');
+    if (!isFinite(dealPp)) missing.push('成交数');
+    if (missing.length) {
+      blocks.push({
+        t: 'list', h: '这些地方填了会更准',
+        items: missing.map(function (m) {
+          return { title: m, desc: '没填的地方本工具按「数据不足」跳过，不会替你猜数字。' };
+        })
+      });
+    }
+
+    blocks.push({
+      t: 'para', h: '用这张表的规矩',
+      text: '一次只处理一个最明显的问题，改完再发一轮看数据。不要看见数据低就把封面、标题、正文全部推翻 —— 那样就算跑好了，你也不知道是哪一处起了作用。多条内容整体不理想时，才是回到周期复盘去跟你自己的基线比较。'
+    });
+
+    return { blocks: blocks, table: { head: ['漏斗层级', '你的数据', '对照线', '判定', '这一层在说什么'], rows: rows } };
+  }
+
+  /* ================= 工具五：周期复盘 ================= */
+  function runReview(v) {
+    var span = v.rv_span === 'month' ? '本月' : '本周';
+    var lines = splitLines(v.rv_lines);
+    var bImp = num(v.rv_bimp);
+    var rows = [], items = [];
+    var tally = { up: [], flat: [], down: [] };
+
+    if (!lines.length) {
+      return {
+        blocks: [{
+          t: 'para', h: '没有读到内容',
+          text: '至少贴一行内容数据再跑。每行一条，格式：笔记标题 | 曝光 | 商品点击 | 成交。用竖线隔开就行，缺的项可以空着。'
+        }], table: null
+      };
+    }
+
+    lines.forEach(function (ln, i) {
+      var p = splitRow(ln);
+      var t = p[0] || ('第 ' + (i + 1) + ' 条');
+      var imp = num(p[1]), pc = num(p[2]), deal = num(p[3]);
+      var hasDeal = isFinite(deal) && deal > 0;
+      var hasPc = isFinite(pc) && pc > 0;
+      var g = lvl(imp, bImp);
+
+      var decide, why;
+      if (g === 'down') {
+        if (hasDeal) {
+          decide = '观察'; why = '曝光比基线低，但这条真的带来了成交 —— 播放量不好看不等于没价值，别急着淘汰。';
+          tally.flat.push(t);
+        } else {
+          decide = '淘汰'; why = '曝光明显低于自己的基线，也没有商品结果，这个方向先停下来，把精力挪到跑得动的那几条上。';
+          tally.down.push(t);
+        }
+      } else if (g === 'up') {
+        decide = '加码'; why = '明显高于自己的基线，' + (hasPc ? '商品点击也起来了，' : '') + '这个组合值得顺着再做一组。';
+        tally.up.push(t);
+      } else if (g === 'flat') {
+        if (hasDeal) {
+          decide = '加码'; why = '曝光平平但有成交，是典型的「内容不爆、产品能卖」，值得保留并往这个人群加推。';
+          tally.up.push(t);
+        } else {
+          decide = '观察'; why = '和基线差不多，暂时不动，也不追加投入，等下一轮数据。';
+          tally.flat.push(t);
+        }
+      } else {
+        decide = '待补'; why = '没填账号基线曝光，无法和自己比较，这里不下判断。';
+      }
+
+      rows.push([String(i + 1), t, fmtN(imp), (isFinite(bImp) && bImp > 0 && isFinite(imp)) ? Math.round(imp / bImp * 100) + '%' : '—', fmtN(pc), fmtN(deal), '**' + decide + '**', why]);
+      items.push({ title: t + ' → ' + decide, desc: why });
+    });
+
+    var blocks = [];
+    blocks.push({
+      t: 'verdict', h: span + '的整体判断', level: tally.down.length > tally.up.length ? 'high' : 'mid',
+      levelTxt: span + '结论',
+      body: '加码 ' + tally.up.length + ' 条、观察 ' + tally.flat.length + ' 条、淘汰 ' + tally.down.length + ' 条。' +
+        (isFinite(bImp) && bImp > 0 ? '（对照的是你自己的基线曝光 ' + fmtN(bImp) + '）' : '（没填基线曝光，本次只做了粗判）'),
+      why: tally.up.length ? '跑得动的：' + tally.up.slice(0, 3).join('、') : '这一轮没有明显高于基线的内容，先别加量，回去检查选题方向。',
+      do: tally.up.length
+        ? '把加码的那几条拆开看：是封面、标题、场景还是商品在起作用，下一轮只围绕它做变体，不要同时换方向。'
+        : '这一轮先不加码。把淘汰的方向停掉，集中把「观察」的几条改一处再试一轮。'
+    });
+
+    blocks.push({ t: 'table', h: span + '内容逐条判定', head: ['#', '笔记', '曝光', '相对基线', '商品点击', '成交', '决定', '理由'], rows: rows });
+
+    blocks.push({
+      t: 'list', h: '按结论分组',
+      items: [
+        { title: '加码（' + tally.up.length + ' 条）', desc: tally.up.length ? tally.up.join('、') : '本轮没有。下轮的重点应该是找出一条能加码的，而不是铺更多内容。' },
+        { title: '观察（' + tally.flat.length + ' 条）', desc: tally.flat.length ? tally.flat.join('、') : '本轮没有。' },
+        { title: '淘汰（' + tally.down.length + ' 条）', desc: tally.down.length ? tally.down.join('、') : '本轮没有需要停的方向。' }
+      ]
+    });
+
+    blocks.push({
+      t: 'list', h: '写回复盘时还要记下来的',
+      items: [
+        { title: '内容角度', desc: '哪几个人群和场景的组合反复出现好信号？把它们补进选题库，下次直接调用。' },
+        { title: '封面与标题', desc: '点击率高的封面长什么样、标题用的什么钩子？整理成模板，别每次从零想。' },
+        { title: '评论里的需求', desc: '评论区反复问的那几件事，就是下一批内容的现成选题。' },
+        { title: '人工耗时', desc: '这一周花在重复操作上的时间，哪些可以交给模板或工具，别每周都手抄一遍数据。' }
+      ]
+    });
+
+    blocks.push({
+      t: 'para', h: '这套判定的前提',
+      text: '所有比较都是跟你自己的账号基线做的，不拿同行的播放量硬套。' +
+        (isFinite(bImp) && bImp > 0 ? '' : '这次没填基线曝光，判定偏粗 —— 补上你近 10 条内容的平均曝光再跑一次会更准。')
+    });
+
+    return { blocks: blocks, table: { head: ['#', '笔记', '曝光', '相对基线', '商品点击', '成交', '决定', '理由'], rows: rows } };
+  }
+
+  /* ================= 工具六：成交路径 ================= */
+  function runConv(v) {
+    var prod = v.cv_prod || '这款产品';
+    var aud = v.cv_aud || '目标人群';
+    var price = num(v.cv_price);
+    var way = v.cv_way || '私信';
+    var worries = words(v.cv_worry);
+    var trust = v.cv_trust || '';
+
+    var tier, tierDesc, steps;
+    if (!isFinite(price) || price <= 0) {
+      tier = '未填客单价';
+      tierDesc = '你没填客单价，下面按中等决策强度给路径。补上价格后，路径长短会自动调整。';
+      steps = buildSteps(prod, aud, way, 'mid', worries);
+    } else if (price <= 99) {
+      tier = '低决策（¥' + price + ' 以内）';
+      tierDesc = '这个价位用户不太需要犹豫，路径越短越好。别在中间加太多说服环节，加了反而掉人。';
+      steps = buildSteps(prod, aud, way, 'low', worries);
+    } else if (price <= 499) {
+      tier = '中决策（¥100 - ¥499）';
+      tierDesc = '这个价位用户会货比三家。你要做的是「给对比依据」而不是「喊它好」，中间必须有一层信任材料。';
+      steps = buildSteps(prod, aud, way, 'mid', worries);
+    } else {
+      tier = '高决策（¥' + price + ' 以上）';
+      tierDesc = '这个价位用户买的是「判断对不对」，不是产品本身。路径会长，但每一层掉的人都值得 —— 急着报价反而把人吓跑。';
+      steps = buildSteps(prod, aud, way, 'high', worries);
+    }
+
+    var blocks = [];
+    blocks.push({
+      t: 'verdict', h: '这个客单价该怎么走', level: tier.indexOf('高决策') === 0 ? 'high' : (tier.indexOf('低决策') === 0 ? 'low' : 'mid'),
+      levelTxt: tier, body: tierDesc,
+      why: '成交方式：' + way + '。路径一共 ' + steps.length + ' 步，每一步只承担一个目的，不要在同一步里既建立信任又报价。',
+      do: '先把第 1 步和第 2 步做扎实 —— 大部分漏斗是死在前面两层，而不是死在最后的报价话术。'
+    });
+
+    blocks.push({
+      t: 'table', h: '从内容到成交的路径',
+      head: ['步骤', '这一步的目的', '具体怎么做', '怎么判断这步通不通'],
+      rows: steps.map(function (s) { return [s[0], s[1], s[2], s[3]]; })
+    });
+
+    blocks.push({
+      t: 'list', h: '私信开场：别用「需要吗」当第一句',
+      items: [
+        { title: '给东西型', desc: '「看到你问的是 XX —— 我把' + prod + '的挑选清单整理好了，直接发你，不用客气。」先给，不索取。' },
+        { title: '反问型', desc: '「想先问一下，你主要是想解决 ' + (worries[0] || '哪一个具体场景') + '？」问清楚再说话，比先报价成交率高得多。' },
+        { title: '承接评论型', desc: '「你在评论区那条我看到了，情况我大概明白，先说结论：你这个情况更适合…」让人知道你真的看了他的问题。' }
+      ]
+    });
+
+    if (worries.length) {
+      blocks.push({
+        t: 'list', h: '你填的顾虑，逐条准备应答',
+        items: worries.slice(0, 6).map(function (w) {
+          return {
+            title: '用户说：' + w,
+            desc: '别否认，先承认再解释：' +
+              '「你担心的这个很正常，之前也有人问过 —— 当时的情况是…，处理后是…。如果你怕这点，可以先…」' +
+              (trust ? '可以拿「' + trust + '」当证据。' : '这里需要一份真实证据（测评、对比图、使用记录），没有就去补，不要用形容词顶。')
+          };
+        })
+      });
+    }
+
+    blocks.push({
+      t: 'para', h: '这条路径的红线',
+      text: '评论区和私信里不要直接甩外部联系方式或站外链接，平台会限流甚至禁言；不要承诺「一定有效」「用了就好」这类绝对化表述；' +
+        '私信内容不要群发同一段话，被系统识别为营销信息会掉权重。' + (isFinite(price) && price > 499 ? '高客单价尤其不要在第一次对话就报价 —— 先判断需求，再给方案。' : '')
+    });
+
+    return { blocks: blocks, table: { head: ['步骤', '这一步的目的', '具体怎么做', '怎么判断这步通不通'], rows: steps.map(function (s) { return [s[0], s[1], s[2], s[3]]; }) } };
+  }
+
+  function buildSteps(prod, aud, way, tier, worries) {
+    var w0 = worries[0] || '最常被担心的那件事';
+    var s = [];
+    s.push(['1 触达：让有这个困扰的人停下来',
+      '拿到点击，过滤掉无关人群',
+      '封面放使用后的结果或前后对比，标题点名「' + aud + '」和具体场景，不要放产品全称但让人看不懂',
+      '看点击率有没有到你自己的基线']);
+    s.push([
+      '2 承接：让人读下去', '把点击变成读完',
+      tier === 'high'
+        ? '不要上来介绍产品。先讲「判断这件事的标准是什么」，让人觉得你懂这个领域，而不是急着卖东西'
+        : '开头两句直接讲使用后的结果和它解决的具体问题，自我介绍全部删掉',
+      '看平均阅读时长有没有到 20 秒'
+    ]);
+    if (tier === 'mid' || tier === 'high') {
+      s.push(['3 主页承担信任',
+        '让人确认「这个账号值得信」',
+        '简介点名服务的人群和能给什么；三条置顶分别放「测评/对比合集」「真实使用记录」「你是谁」，缺哪类补哪类',
+        '看主页访问后的关注转化']);
+    }
+    if (tier === 'high') {
+      s.push(['4 建立专业判断',
+        '把「在卖东西」变成「在给建议」',
+        '发一条讲方法和判断标准的内容，公开说明你为什么会推荐、什么情况下不推荐',
+        '看有没有人主动在评论区描述自己的情况']);
+    }
+    s.push([(s.length + 1) + ' 钩子：把人接到' + way,
+      '创造一次一对一对话的机会',
+      tier === 'low'
+        ? '结尾只给一个动作：「链接在橱窗 / 看置顶」，别给两个以上的出口'
+        : '评论区用统一话术接：「我把清单/对比表整理好了，扣 1 我发你」，一条一条回，别复制粘贴同一句',
+      '看评论区和' + way + '的量有没有起来']);
+    s.push([(s.length + 1) + ' 对话：先给东西再谈钱',
+      '把咨询变成有依据的选择',
+      tier === 'high'
+        ? '先问清对方的具体情况和使用场景，给出初步判断，报价值放到第二次对话之后'
+        : '先给对比清单或选购依据，再问预算和需求，最后才报价',
+      '看对话轮次有没有超过 3 轮 —— 聊得越深成交越高']);
+    s.push([(s.length + 1) + ' 收口：处理最后一个顾虑',
+      '把犹豫变成下单',
+      '针对「' + w0 + '」给出具体答案和退路（不合适怎么处理、有没有保障），不要说笼统的「放心吧」',
+      '看' + way + '到的成交数']);
+    if (tier !== 'low') {
+      s.push([(s.length + 1) + ' 复购：一次成交只是开始',
+        '让人带来下一个人',
+        '成交后给一份使用指引，隔几天问一次真实感受，满意再请他分享到自己的主页',
+        '看复购和转介绍的数量']);
+    }
+    return s;
+  }
+
+  /* ================= 工具七：评论回复 ================= */
+  var CM_RULES = [
+    { n: '价格询问', re: /多少钱|什么价|报价|贵不贵|便宜|预算|性价比|价位|how much/i, top: 3, aim: '把价格话题从评论区接到私信或主页，同时不让别人觉得你在躲' },
+    { n: '求链接/求购', re: /链接|哪里买|哪里入手|求购|买哪个|想要|蹲一个|橱窗|店铺|型号|求个/, top: 2, aim: '给一个明确的、平台友好的去处，不要在评论区甩外链' },
+    { n: '质疑/担心', re: /真的吗|有用吗|有效吗|靠谱|智商税|假的|不信|有没有用|会不会|副作用|安全/, top: 3, aim: '这是最有置顶价值的一类：承认局限、给证据，不打太极' },
+    { n: '具体提问', re: /怎么|如何|可以吗|能不能|请问|求教程|区别|适合|怎么办/, top: 2, aim: '给出能用的一句话答案，把细节留到正文或私信' },
+    { n: '表达喜欢', re: /好看|喜欢|爱了|太棒|绝了|谢谢|学到了|收藏|种草|已买|回购/, top: 1, aim: '接住情绪，顺手把对话引向下一层' },
+    { n: '闲聊水评', re: /[哈呵嘻]{2,}|来了|打卡|沙发|路过|哈哈|^[\s\S]{0,4}$/, top: 0, aim: '轻巧回一句，维持评论区温度即可，不要硬塞营销信息' }
+  ];
+
+  function cmGuess(t) {
+    for (var i = 0; i < CM_RULES.length; i++) {
+      if (CM_RULES[i].re.test(t)) return CM_RULES[i];
+    }
+    return { n: '一般性留言', re: null, top: 1, aim: '接住对方放下的问题，再给一个明确的下一步' };
+  }
+
+  function runComment(v) {
+    var prod = v.cm_prod || '这款产品';
+    var list = splitLines(v.cm_list);
+    var goal = v.cm_goal || '私信';
+    var price = num(v.cm_price);
+    var note = v.cm_note || '这条笔记';
+
+    if (!list.length) {
+      return {
+        blocks: [{ t: 'para', h: '没有读到评论', text: '把评论一行一条贴进来再跑。每行一条，原样复制就行。' }], table: null
+      };
+    }
+
+    var goalTip = {
+      '私信': '这一轮的目标是把人引到私信，所以回复里不报价、不放链接，只给一个「我发你」的动作。',
+      '信任': '这一轮的目标是建立信任，所以宁可承认不足，也不要把话说满。',
+      '下单': '这一轮的目标是促单，所以每条回复都要落到「下一步做什么」这一个具体动作上。',
+      '选题': '这一轮的目标是收集选题，重点看哪些问题被反复问到 —— 它们就是下一批内容。'
+    }[goal] || '这一轮的目标是把人引到私信。';
+
+    var rows = [], best = null, bestIdx = -1;
+    list.slice(0, 20).forEach(function (t, i) {
+      var r = cmGuess(t);
+      var reply = cmReply(prod, goal, r.n, price, t);
+      rows.push([String(i + 1), t.slice(0, 40), '**' + r.n + '**', reply, r.aim]);
+      if (!best || r.top > best.top) { best = r; bestIdx = i; }
+    });
+
+    var blocks = [];
+    blocks.push({
+      t: 'verdict', h: '这一轮评论区怎么打', level: goal === '下单' ? 'mid' : 'low', levelTxt: '目标：' + goal,
+      body: goalTip,
+      why: '一共读了 ' + list.length + ' 条评论。这一步不追求每条都回出花来，追求的是「每条都有一个明确去处」。',
+      do: '先把下面标成「质疑/担心」和「价格询问」的回完 —— 这两类最能影响后面看到这条笔记的人。'
+    });
+
+    blocks.push({ t: 'table', h: '逐条回复建议', head: ['#', '原评论', '判定类型', '建议回复', '这样回的用意'], rows: rows });
+
+    blocks.push({
+      t: 'list', h: '置顶哪一条',
+      items: [
+        {
+          title: best.top > 0 ? '建议置顶第 ' + (bestIdx + 1) + ' 条（' + best.n + '）' : '暂时没有值得置顶的',
+          desc: best.top > 0
+            ? '置顶的逻辑不是挑最好听的，而是挑「最能打消后来者顾虑」的那条。' + best.aim + '。置顶后这条回答会被后面每个点进来的人看到。'
+            : '这轮评论里没有能打消顾虑的对话。可以在正文里主动埋一个用户最常问的问题并自己抢答（用回复的方式补在评论区），再把那条置顶。'
+        },
+        {
+          title: '置顶之后做什么',
+          desc: '隔两小时回来看一次。评论区的回复也是内容，会被算法算进互动，也会给后来的读者第一印象。'
+        }
+      ]
+    });
+
+    if (goal === '选题') {
+      blocks.push({
+        t: 'list', h: '这批评论能变成什么选题',
+        items: dedupeTypes(rows).map(function (n) {
+          return { title: '「' + n + '」类问题 → 单开一条笔记', desc: '标题直接拿用户的原话，正文按「先答结论、再给方法、最后说适用边界」的顺序写。' };
+        })
+      });
+    }
+
+    blocks.push({
+      t: 'para', h: '评论区的红线',
+      text: '不要在评论区直接放微信号、手机号或站外链接，容易被折叠甚至限流；不要回复「私我」两个字就完事 —— 既没给对方理由，也容易被系统判为导流。' +
+        '同一个回复别连着复制粘贴十几条，会被识别成营销行为。'
+    });
+
+    return { blocks: blocks, table: { head: ['#', '原评论', '判定类型', '建议回复', '这样回的用意'], rows: rows } };
+  }
+
+  function dedupeTypes(rows) {
+    var seen = {}, out = [];
+    rows.forEach(function (r) {
+      var n = String(r[2]).replace(/\*/g, '');
+      if (!seen[n] && n !== '闲聊水评') { seen[n] = 1; out.push(n); }
+    });
+    return out;
+  }
+
+  function cmReply(prod, goal, type, price, raw) {
+    if (type === '价格询问') {
+      return price > 0
+        ? '「' + prod + '是 ' + price + ' 元档的，不同规格差得挺多 —— 你说下你的情况，我帮你看看哪个划算。」（不在评论区直接说「便宜」，让人自己去比）'
+        : '「价格分规格，我把对照表整理好了发你，你按自己的情况挑就行。」';
+    }
+    if (type === '求链接/求购') {
+      return goal === '下单'
+        ? '「在橱窗里 / 置顶那条有写，点进去就能看到，还有问题随时问我。」（给一个明确去处，别留「私我」两个字）'
+        : '「我把入口整理在置顶那条了，另外挑的时候有个坑我顺便提醒你一句…」（先给点东西，再让人去）';
+    }
+    if (type === '质疑/担心') {
+      return '「你这个担心是对的，它确实不适合所有人 —— 比如 XX 情况就不建议。我自己用下来的情况是…，我发你看看实际的记录。」（先承认边界，比说「放心有效」可信得多）';
+    }
+    if (type === '具体提问') {
+      return '「一句话版：…。完整的我写在置顶那条里了，看完还有卡住的再问我。」（评论区给答案，细节留给正文，别让人白跑一趟）';
+    }
+    if (type === '表达喜欢') {
+      return '「谢谢！你如果也打算试，我提醒一句 XX 别踩。」（接住情绪，顺手给个实用信息，不要回「谢谢支持」四个字）';
+    }
+    if (type === '闲聊水评') {
+      return '一句轻松的回应即可，不带任何引导。不是每条流量都要接住。';
+    }
+    return '「你说的是 XX 这块吧？我大概是这么处理的…，你的情况如果不一样告诉我，我再帮你看看。」';
+  }
+
+  /* ================= 工具八：竞品台账 ================= */
+  function runRival(v) {
+    var lines = splitLines(v.rb_lines);
+    var thresh = num(v.rb_thresh);
+    var focus = v.rb_focus || '';
+
+    if (!lines.length) {
+      return {
+        blocks: [{ t: 'para', h: '没有读到账号', text: '每行一个账号，格式：账号名 | S/A/B | 粉丝数 | 近期平均赞 | 备注。用竖线隔开，没粉丝数可以空着。' }], table: null
+      };
+    }
+
+    var rows = [], group = { S: [], A: [], B: [] }, noLevel = [];
+    lines.slice(0, 40).forEach(function (ln, i) {
+      var p = splitRow(ln);
+      var name = p[0] || ('账号 ' + (i + 1));
+      var lv = String(p[1] || '').toUpperCase();
+      if (lv.indexOf('S') === 0) lv = 'S';
+      else if (lv.indexOf('A') === 0) lv = 'A';
+      else if (lv.indexOf('B') === 0) lv = 'B';
+      else lv = '';
+      var fans = num(p[2]), likes = num(p[3]);
+      var memo = p[4] || '';
+      var rate = (isFinite(likes) && isFinite(fans) && fans > 0) ? Math.round(likes / fans * 1000) / 10 : NaN;
+      if (lv) group[lv].push(name); else noLevel.push(name);
+      rows.push([
+        String(i + 1), name, lv ? '**' + lv + ' 级**' : '未分级', fmtN(fans), fmtN(likes),
+        pct1(rate) + (isFinite(rate) ? '' : ''), RIVAL_DUTY[lv || 'X'].watch, memo || '—'
+      ]);
+    });
+
+    var blocks = [];
+    blocks.push({
+      t: 'verdict', h: '这批对手怎么盯', level: group.S.length ? 'mid' : 'low',
+      levelTxt: '共 ' + lines.length + ' 个账号',
+      body: 'S 级 ' + group.S.length + ' 个（头部分分钟可能有新动向）、A 级 ' + group.A.length + ' 个（同量级，重点学）、B 级 ' + group.B.length + ' 个（上升期，提前看）。' +
+        (noLevel.length ? '另有 ' + noLevel.length + ' 个没标级别，建议补上：' + noLevel.slice(0, 3).join('、') + '。' : ''),
+      why: '分级不是为了排场，是为了决定「多久看一次」和「看什么」。没有分级的账号最容易变成无效关注。',
+      do: 'S 级每天扫一眼有没有新内容，A 级每周看一次爆款和失败品，B 级每两周看一次涨势 —— 不要对所有账号用同一个频率。'
+    });
+
+    blocks.push({ t: 'table', h: '台账明细', head: ['#', '账号', '级别', '粉丝数', '近期平均赞', '赞粉比', '盯什么', '备注'], rows: rows });
+
+    blocks.push({
+      t: 'list', h: '三级分工',
+      items: [
+        { title: 'S 级：' + (group.S.length || 0) + ' 个 —— 死盯', desc: group.S.length ? group.S.join('、') + '：他们的任何新动作都可能代表下一波趋势，重点看他们换了什么新的内容形式或商品。' : '还没有 S 级账号。找 2-3 个类目里明显领先的账号标上。' },
+        { title: 'A 级：' + (group.A.length || 0) + ' 个 —— 学突破', desc: group.A.length ? group.A.join('、') + '：和你同量级，重点看他们正在尝试什么新方法，以及哪些尝试没成。' : '还没有 A 级账号。挑 3-5 个跟你体量接近、正在上升的。' },
+        { title: 'B 级：' + (group.B.length || 0) + ' 个 —— 挖黑马', desc: group.B.length ? group.B.join('、') + '：涨得快但还没成气候，可以提前关注、找合作，或者拆解他们的崛起路径。' : '还没有 B 级账号。按日增粉丝去捞，比看绝对粉丝数更容易发现黑马。' }
+      ]
+    });
+
+    blocks.push({
+      t: 'list', h: '别只看对手爆了什么',
+      items: [
+        { title: '失败样本比爆款更值钱', desc: '把对手数据明显低于他平均水平的笔记也记下来 —— 那说明这个方向市场不买账，你可以直接省掉一轮试错。' },
+        {
+          title: '日增阈值该怎么设',
+          desc: isFinite(thresh) && thresh > 0
+            ? '你设的日增报警线是 ' + fmtN(thresh) + ' 粉丝。如果连续多日触发，说明这个体量的账号正处于上升期，值得升到更高一级去盯。'
+            : '没填日增粉丝阈值。建议按你自己账号体量的 1%~3% 设一条线：触发了才看，不然每天刷一遍根本坚持不下来。'
+        },
+        { title: '粉丝数不等于价值', desc: '赞粉比低于 1% 的账号，粉丝再多也不值得参考 —— 数据可能是早期堆出来的，互动已经死了。' }
+      ]
+    });
+
+    if (focus) {
+      blocks.push({ t: 'para', h: '本周要盯的事', text: focus + '（记下来：本周结束前回头看一眼有没有答案，没有就说明这个观察项设得不好，下周换一个。）' });
+    }
+
+    blocks.push({
+      t: 'para', h: '合规提醒',
+      text: '监控和采集请走合规渠道：平台自带的创作中心/专业号后台数据、公开可见内容的手动整理，或有授权的数据服务。' +
+        '不要用来路不明的爬虫去抓平台数据 —— 账号被限流或封禁的代价，远大于省下来的那点时间。批量绕过平台反爬还可能涉及法律责任。'
+    });
+
+    return { blocks: blocks, table: { head: ['#', '账号', '级别', '粉丝数', '近期平均赞', '赞粉比', '盯什么', '备注'], rows: rows } };
+  }
+
+  var RIVAL_DUTY = {
+    S: { watch: '每天扫一眼：有没有新内容、换了什么形式' },
+    A: { watch: '每周看：本周爆了什么、什么没爆' },
+    B: { watch: '每两周看：涨势是否还在、能否合作' },
+    X: { watch: '未分级，先补级别' }
+  };
+
   /* ================= 工具定义 ================= */
   var TOOLS = {
     title: {
@@ -428,6 +1015,67 @@
         { k: 'tb_pain', label: '痛点词（逗号分隔，选填）', ph: '例：抽屉乱，找不到东西', small: '用来生成答疑类选题' }
       ],
       run: runTopic
+    },
+    diag: {
+      name: '发布回查',
+      hint: '数据不好的时候用。填多少算多少，没填的会跳过而不是替你猜。',
+      fields: [
+        { k: 'dg_title', label: '笔记标题（选填）', ph: '方便你回头认出是哪条' },
+        { k: 'dg_imp', label: '曝光 / 展现量', ph: '例：3200', req: true },
+        { k: 'dg_click', label: '点击数', ph: '例：160', small: '用来算点击率' },
+        { k: 'dg_bimp', label: '账号同类内容平均曝光', ph: '例：4000', small: '这是你自己的基线，不填就没法比' },
+        { k: 'dg_bctr', label: '账号平均点击率%（选填）', ph: '例：5', small: '不填就用 5% 通用参考线' },
+        { k: 'dg_stay', label: '平均阅读时长（秒，选填）', ph: '例：18' },
+        { k: 'dg_inter', label: '互动数（赞+藏+评，选填）', ph: '例：80' },
+        { k: 'dg_pc', label: '商品点击数（选填）', ph: '例：12' },
+        { k: 'dg_deal', label: '成交数（选填）', ph: '例：1' }
+      ],
+      run: runDiag
+    },
+    review: {
+      name: '周期复盘',
+      hint: '每周或每月跑一次。每行一条内容，用竖线隔开：标题 | 曝光 | 商品点击 | 成交。',
+      fields: [
+        { k: 'rv_span', label: '周期', type: 'select', opts: ['本周', '本月'] },
+        { k: 'rv_bimp', label: '账号基线曝光', ph: '例：3000', req: true, small: '近 10 条内容的平均曝光' },
+        { k: 'rv_lines', label: '本期内容数据（每行一条）', type: 'textarea', req: true, ph: '出租屋收纳改造 | 5200 | 46 | 3\n抽屉分隔测评 | 1800 | 9 | 0\n换季整理清单 | 3400 | 21 | 1', small: '格式：标题 | 曝光 | 商品点击 | 成交，后面两项可以空着' }
+      ],
+      run: runReview
+    },
+    conv: {
+      name: '成交路径',
+      hint: '客单价决定路径长短 —— 先填价格，出来的步骤数会不一样。',
+      fields: [
+        { k: 'cv_prod', label: '产品 / 服务', ph: '例：定制收纳方案', req: true },
+        { k: 'cv_aud', label: '目标人群', ph: '例：25-30 岁租房女生', req: true },
+        { k: 'cv_price', label: '客单价（元）', ph: '例：89', req: true, small: '99 以内走短路径，500 以上走长路径' },
+        { k: 'cv_way', label: '成交方式', type: 'select', opts: ['私信', '店铺下单', '社群沉淀', '线下到店'] },
+        { k: 'cv_worry', label: '用户常见顾虑（逗号分隔）', ph: '例：怕不耐用，怕装不上，怕买回来闲置' },
+        { k: 'cv_trust', label: '你能提供的信任材料（选填）', ph: '例：50 个真实改造案例、三年质保' }
+      ],
+      run: runConv
+    },
+    comment: {
+      name: '评论回复',
+      hint: '贴评论一行一条，出分类、回复话术和置顶建议。',
+      fields: [
+        { k: 'cm_list', label: '评论列表（每行一条）', type: 'textarea', req: true, ph: '多少钱呀\n在哪里买的\n这个真的有用吗\n抽屉深度 15 能用吗', small: '最多处理 20 条' },
+        { k: 'cm_prod', label: '产品 / 服务', ph: '例：抽屉分隔盒', req: true },
+        { k: 'cm_goal', label: '这轮评论区的目标', type: 'select', opts: ['私信', '信任', '下单', '选题'] },
+        { k: 'cm_price', label: '客单价（选填）', ph: '例：89', small: '填了才知道价格类评论怎么接' },
+        { k: 'cm_note', label: '这条笔记的主题（选填）', ph: '例：出租屋收纳改造' }
+      ],
+      run: runComment
+    },
+    rival: {
+      name: '竞品台账',
+      hint: '每行一个账号：账号名 | S/A/B | 粉丝数 | 近期平均赞 | 备注。没粉丝数可以空着。',
+      fields: [
+        { k: 'rb_lines', label: '账号列表', type: 'textarea', req: true, ph: '收纳研究所 | S | 320000 | 8500 | 头部，形式变化快\n整理癖阿May | A | 42000 | 1300 | 和我同量级\n小户型日记 | B | 9000 | 620 | 涨得快', small: '最多处理 40 个' },
+        { k: 'rb_thresh', label: '日增粉丝报警阈值（选填）', ph: '例：200', small: '建议按自己体量的 1%~3% 设' },
+        { k: 'rb_focus', label: '本周要盯的一件事（选填）', ph: '例：S 级账号有没有开始做视频合集' }
+      ],
+      run: runRival
     }
   };
 
@@ -461,11 +1109,18 @@
       '<h4>' + esc(t.name) + '</h4><p class="st-hint">' + esc(t.hint) + '</p>' +
       t.fields.map(function (f) {
         var val = load('xhs.form.' + curKey, {})[f.k] || '';
+        var head = '<label class="st-field"><span>' + esc(f.label) + (f.req ? ' *' : '') + (f.small ? ' <small>' + esc(f.small) + '</small>' : '') + '</span>';
         if (f.type === 'textarea') {
-          return '<label class="st-field"><span>' + esc(f.label) + (f.req ? ' *' : '') + (f.small ? ' <small>' + esc(f.small) + '</small>' : '') + '</span>' +
+          return head +
             '<textarea class="st-textarea" id="f_' + f.k + '" placeholder="' + esc(f.ph || '') + '">' + esc(val) + '</textarea></label>';
         }
-        return '<label class="st-field"><span>' + esc(f.label) + (f.req ? ' *' : '') + (f.small ? ' <small>' + esc(f.small) + '</small>' : '') + '</span>' +
+        if (f.type === 'select') {
+          return head + '<select class="st-input st-select" id="f_' + f.k + '">' +
+            f.opts.map(function (o) {
+              return '<option value="' + esc(o) + '"' + (val === o ? ' selected' : '') + '>' + esc(o) + '</option>';
+            }).join('') + '</select></label>';
+        }
+        return head +
           '<input class="st-input" id="f_' + f.k + '" value="' + esc(val) + '" placeholder="' + esc(f.ph || '') + '"></label>';
       }).join('') +
       '<div class="st-actions">' +
@@ -475,14 +1130,20 @@
       '</div>' +
       '<div class="st-status" id="stStatus"></div>';
 
+    function fieldSaver(k) {
+      return function () {
+        var s = load('xhs.form.' + curKey, {});
+        s[k] = ($('f_' + k) || {}).value || '';
+        store('xhs.form.' + curKey, s);
+      };
+    }
+
     TOOLS[curKey].fields.forEach(function (f) {
       var el = $('f_' + f.k);
       if (!el) return;
-      el.addEventListener('input', function () {
-        var s = load('xhs.form.' + curKey, {});
-        s[f.k] = el.value;
-        store('xhs.form.' + curKey, s);
-      });
+      var fn = fieldSaver(f.k);
+      el.addEventListener('input', fn);
+      el.addEventListener('change', fn);
     });
 
     $('stRun').addEventListener('click', function () { generate(false); });
