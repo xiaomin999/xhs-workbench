@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>红算子 · 小红书运营 AI 工作台</title>
 <meta name="description" content="把重复操作交给 AI，把判断留给自己。小红书运营的采集雷达、内容工坊、转化路径与四阶段成长路线图。">
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="studio.css?v=1">
 <noscript><style>.reveal{opacity:1;transform:none;}</style></noscript>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23FF2442'/><path d='M9 21l14-10M9 11h14v10' stroke='%23fff' stroke-width='2.2' fill='none' stroke-linecap='round'/></svg>">
 </head>
@@ -27,11 +28,12 @@
       <a href="#roadmap">四阶段路线</a>
       <a href="#diagnose">数据回查</a>
       <a href="#prompts">指令库</a>
+      <a href="#studio">工作台</a>
       <a href="#faq">常见问题</a>
     </nav>
     <div class="nav-cta">
       <a class="btn btn-ghost" href="#tools">看工具</a>
-      <a class="btn btn-primary" href="#start">开始使用</a>
+      <a class="btn btn-primary" href="#studio">打开工作台</a>
     </div>
     <button class="nav-toggle" id="navToggle" aria-label="展开菜单">
       <span></span><span></span><span></span>
@@ -51,7 +53,7 @@
         把每天最磨人的那部分做完，让你只保留三件事：<strong>想清楚方向、做取舍、看数据下判断。</strong>
       </p>
       <div class="hero-actions">
-        <a class="btn btn-primary btn-lg" href="#tools">看看工具箱</a>
+        <a class="btn btn-primary btn-lg" href="#studio">直接开工</a>
         <a class="btn btn-line btn-lg" href="#roadmap">先搞懂运营顺序</a>
       </div>
       <ul class="hero-facts">
@@ -511,11 +513,63 @@
   </div>
 </section>
 
-<!-- ============ START ============ -->
-<section class="sec sec-alt" id="start">
+<!-- ============ 工作台 ============ -->
+<section class="sec sec-alt" id="studio">
   <div class="wrap">
     <div class="sec-head reveal">
-      <span class="kicker">07 / 开始</span>
+      <span class="kicker">07 / 工作台</span>
+      <h2>不用复制粘贴，直接在浏览器里做完</h2>
+      <p class="sub">左边填，右边出。<strong>本地引擎先把结构与框架跑出来，不联网、不要 key、不给钱</strong>；想再润色，填上你自己的 API key 点「用 AI 精修」。key 只存在这台机器的浏览器里。</p>
+    </div>
+
+    <div class="st-setup reveal">
+      <button class="st-setup-toggle" id="stSetupToggle"><i>·</i> AI 设置（可选 · 不填也能用）</button>
+      <div class="st-setup-body" id="stSetupBody" hidden>
+        <div class="st-setup-grid">
+          <label class="st-field"><span>Base URL</span><input class="st-input" id="aiBase" placeholder="https://api.deepseek.com"></label>
+          <label class="st-field"><span>模型名</span><input class="st-input" id="aiModel" placeholder="deepseek-chat"></label>
+          <label class="st-field"><span>API Key</span><input class="st-input" id="aiKey" type="password" placeholder="sk-..."></label>
+        </div>
+        <div class="st-actions">
+          <button class="st-run" id="aiSave">保存设置</button>
+          <button class="st-mini danger" id="aiClear">删除 key</button>
+          <span class="st-msg">支持 OpenAI 兼容接口：DeepSeek、智谱、Kimi、通义等</span>
+        </div>
+        <div class="st-safe">
+          <b>关于安全：</b>key 保存在本机 localStorage，只从这个网页发往你填的那个接口地址，不经过任何其他服务器。
+          代价是：静态站无法加密存储，共用电脑或装了不明扩展时不建议填。<b>不填也能完整使用</b> —— 本地引擎不依赖它。
+        </div>
+      </div>
+    </div>
+
+    <div class="st-tabs reveal" id="stTabs"></div>
+
+    <div class="st-grid reveal">
+      <div class="st-form card" id="stForm"></div>
+      <div class="st-result card" id="stResult">
+        <div class="st-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h16M4 12h10M4 17h13" stroke-linecap="round"/></svg>
+          左边填内容，点「生成本地方案」<br>结果会出现在这里
+        </div>
+      </div>
+    </div>
+
+    <div class="st-records reveal">
+      <div class="st-rec-head">
+        <b>我的记录</b>
+        <span>存在本机浏览器，最多留 50 条；换设备不同步，随时导出带走</span>
+        <button class="st-mini" id="stRecExport">导出全部</button>
+      </div>
+      <div class="st-rec-list" id="stRecList"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ START ============ -->
+<section class="sec" id="start">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="kicker">08 / 开始</span>
       <h2>三步，先把当前这一步做完</h2>
     </div>
     <div class="steps">
@@ -535,7 +589,7 @@
 <section class="sec" id="faq">
   <div class="wrap wrap-narrow">
     <div class="sec-head reveal">
-      <span class="kicker">08 / 常见问题</span>
+      <span class="kicker">09 / 常见问题</span>
       <h2>先把话说清楚</h2>
     </div>
     <div class="faq reveal">
@@ -556,6 +610,18 @@
         <p>规则就一条：需要真实数据时，只认已连接工具的采集结果，拿不到就标注「未获取」，绝不用推测数字填充。这一点写死在工作流里。</p>
       </details>
       <details>
+        <summary>工作台里的本地引擎和 AI 精修，区别是什么？</summary>
+        <p>本地引擎不联网、不用 key，按模板把结构和框架跑出来 —— 比如 8 个不同钩子类型的标题、主页逐项体检、7 天排期表。它是确定性的，同一份输入永远同一份输出。AI 精修则是在这个框架上做润色，让它更贴你的产品和口吻。前者负责「有东西可改」，后者负责「不用改那么多」。</p>
+      </details>
+      <details>
+        <summary>填 API key 安全吗？会传到你的服务器吗？</summary>
+        <p>这个站托管在 GitHub Pages，<strong>没有后端，也没有我们的服务器</strong>。你填的 key 存在本机 localStorage，只从这个网页发往你自己填的那个接口地址。风险在于：静态页面无法加密存储，所以共用电脑、或装了来路不明的浏览器扩展时不建议填。随时可以点「删除 key」清掉。<strong>不填，整套本地功能照样完整可用。</strong></p>
+      </details>
+      <details>
+        <summary>AI 精修报「请求被浏览器拦了」怎么办？</summary>
+        <p>那是 CORS —— 这家接口不允许网页直接调用。换一家支持跨域的服务商（多数 OpenAI 兼容接口都可以），或者干脆用本地引擎 + 指令库里复制 prompt 到客户端里跑。两者产出是一套东西，只是换了个执行地点。</p>
+      </details>
+      <details>
         <summary>已经有稳定账号了还需要吗？</summary>
         <p>可以只挑其中一段用。比如已有内容能力但缺转化，直接用成交路径设计；账号多了管不过来，用周期复盘和素材沉淀。</p>
       </details>
@@ -569,7 +635,7 @@
     <h2>别急着追下一个风口<br>先把当前这一步做完</h2>
     <p>AI 可以帮你搜集、分析、整理和写内容，也可以在你不知道下一步做什么时，把你带回当前计划。<br>但它不会替你做判断 —— 那正是你越来越值钱的地方。</p>
     <div class="cta-actions">
-      <a class="btn btn-light btn-lg" href="#tools">打开工具箱</a>
+      <a class="btn btn-light btn-lg" href="#studio">打开工作台</a>
       <a class="btn btn-outline btn-lg" href="#roadmap">看四阶段路线</a>
     </div>
   </div>
@@ -586,6 +652,7 @@
   </div>
 </footer>
 
-<script src="app.js?v=1"></script>
+<script src="app.js?v=2"></script>
+<script src="studio.js?v=1"></script>
 </body>
 </html>
