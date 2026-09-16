@@ -1585,6 +1585,26 @@
   }
 
   /* ================= 启动 ================= */
+  /* 暴露工具名，作为本站唯一的命名源：指令库、工具箱都从这里读，不再各自写死 */
+  window.XHS_TOOLS = TOOLS;
+
+  /* 工具箱卡片：给已有工作台工具的卡片补一条直达入口，按钮文字同样取自 TOOLS */
+  Array.prototype.forEach.call(document.querySelectorAll('.tool[data-st]'), function (card) {
+    var k = card.getAttribute('data-st');
+    if (!TOOLS[k]) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 't-go';
+    btn.textContent = '去工作台 · ' + TOOLS[k].name + ' →';
+    btn.addEventListener('click', function () {
+      var tab = document.querySelector('.st-tab[data-k="' + k + '"]');
+      if (tab) tab.click();
+      var sec = document.getElementById('studio');
+      if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    card.appendChild(btn);
+  });
+
   tabBox.addEventListener('click', function (e) {
     var b = e.target.closest('.st-tab');
     if (!b) return;

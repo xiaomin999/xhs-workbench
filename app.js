@@ -304,7 +304,7 @@
     },
     {
       g: '采集与盯梢',
-      n: '笔记采集器',
+      n: '采集清单',
       st: 'collect',
       d: '规划本周要采什么、怎么分类，产出可执行的采集清单。',
       tip: '这一步只输出「该采什么」，真实数据请用合规渠道采集或人工整理。',
@@ -325,7 +325,7 @@
     },
     {
       g: '采集与盯梢',
-      n: '博主笔记记录器',
+      n: '竞品台账',
       st: 'rival',
       d: '搭一张竞争对手监控台账，把 S / A / B 三级对手管起来。',
       tip: '把这张表复制到表格软件，之后每周固定 20 分钟补一次就够。',
@@ -345,9 +345,9 @@
     },
     {
       g: '采集与盯梢',
-      n: '博主粉丝记录器',
+      n: '涨粉监控',
       st: 'rival',
-      d: '设定增长阈值与报警后的动作，提前发现潜力新星。',
+      d: '设计粉丝增长阈值与拐点回溯，提前发现潜力新星。',
       tip: '阈值别拍脑袋，按粉丝量级分层设定，否则小号永远不报警、大号天天报警。',
       t: [
         '帮我设计一套博主粉丝增长监控方案。类目 {{类目}}，人群 {{人群}}。',
@@ -435,7 +435,7 @@
     },
     {
       g: '内容生产',
-      n: '评论区回复',
+      n: '评论回复',
       st: 'comment',
       d: '批量处理评论、设计置顶，并把问题转成下一批选题。',
       tip: '评论区是免费的选题矿，也是最容易被浪费的转化位。',
@@ -455,7 +455,7 @@
     },
     {
       g: '策略与转化',
-      n: '成交路径设计',
+      n: '成交路径',
       st: 'conv',
       d: '按客单价设计从内容到私信到下单的完整链路。',
       tip: '低客单直接成交，高客单先私信建立信任，别用同一条路径打两类产品。',
@@ -630,8 +630,17 @@
     var box = document.getElementById('pmStudio');
     var go = document.getElementById('pmGo');
     if (box) {
+      /* 工具名以工作台为准，避免两处各写一套后再跑偏 */
+      var tn = (window.XHS_TOOLS && window.XHS_TOOLS[p.st] && window.XHS_TOOLS[p.st].name) || '';
       if (p.st) {
         box.hidden = false;
+        var label = box.querySelector('.pm-studio-txt');
+        if (label) {
+          label.textContent = tn
+            ? '这条指令对应工作台里的「' + tn + '」，已经能直接跑，不用复制粘贴。'
+            : '这个工具在工作台里已经能直接跑，不用复制粘贴。';
+        }
+        if (go) go.textContent = tn ? '去工作台 · ' + tn + ' →' : '去工作台 →';
         if (go) {
           go.onclick = function () {
             var tab = document.querySelector('.st-tab[data-k="' + p.st + '"]');
@@ -712,5 +721,8 @@
         renderPanel();
       });
     }
+
+    /* studio.js 排在后面加载，等它把工具名挂上来后补刷一次面板，否则首屏拿不到名称 */
+    window.addEventListener('load', function () { renderPanel(); });
   }
 })();

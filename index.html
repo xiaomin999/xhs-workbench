@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>红算子 · 小红书运营 AI 工作台</title>
 <meta name="description" content="把重复操作交给 AI，把判断留给自己。小红书运营的采集雷达、内容工坊、转化路径与四阶段成长路线图。">
-<link rel="stylesheet" href="style.css?v=3">
-<link rel="stylesheet" href="studio.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="studio.css?v=4">
 <noscript><style>.reveal{opacity:1;transform:none;}</style></noscript>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23FF2442'/><path d='M9 21l14-10M9 11h14v10' stroke='%23fff' stroke-width='2.2' fill='none' stroke-linecap='round'/></svg>">
 </head>
@@ -176,7 +176,7 @@
 
     <div class="tool-grid" id="toolGrid">
 
-      <article class="tool" data-c="spy">
+      <article class="tool" data-st="collect" data-c="spy">
         <div class="t-head">
           <span class="t-ico red"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M16 16l4.5 4.5M11 8.5v5M8.5 11h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
           <div><h3>笔记采集器</h3><span class="t-sub">爆款素材永动机</span></div>
@@ -190,7 +190,7 @@
         <div class="t-hint">用法：每周固定一次采集，把精力从「找」移到「看」。</div>
       </article>
 
-      <article class="tool" data-c="spy">
+      <article class="tool" data-st="rival" data-c="spy">
         <div class="t-head">
           <span class="t-ico red"><svg viewBox="0 0 24 24"><path d="M12 3c4.4 0 8 3.3 8 7.4 0 2.5-1.4 4.7-3.6 6L15 21H9l-1.4-4.6C5.4 15.1 4 12.9 4 10.4 4 6.3 7.6 3 12 3z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/><path d="M9.5 20.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
           <div><h3>博主笔记记录器</h3><span class="t-sub">竞品雷达站</span></div>
@@ -204,7 +204,7 @@
         <div class="t-hint">S 级盯趋势、A 级学突破、B 级提前押注，别只盯着人家的爆款。</div>
       </article>
 
-      <article class="tool" data-c="spy">
+      <article class="tool" data-st="rival" data-c="spy">
         <div class="t-head">
           <span class="t-ico red"><svg viewBox="0 0 24 24"><path d="M4 18l5-5 3.5 3L20 8" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 8h5v5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <div><h3>博主粉丝记录器</h3><span class="t-sub">潜力股挖掘机</span></div>
@@ -218,7 +218,7 @@
         <div class="t-hint">用来找合作对象，也用来验证某类内容是不是真的在起势。</div>
       </article>
 
-      <article class="tool" data-c="make">
+      <article class="tool" data-st="title" data-c="make">
         <div class="t-head">
           <span class="t-ico ink"><svg viewBox="0 0 24 24"><path d="M15.5 4.5l4 4L9 19H5v-4z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/><path d="M13.5 6.5l4 4" stroke="currentColor" stroke-width="1.8"/></svg></span>
           <div><h3>标题工坊</h3><span class="t-sub">起标题 · 改标题 · 诊断方向</span></div>
@@ -232,7 +232,7 @@
         <div class="t-hint">把人机分工守住：它造句，你判断哪句符合商品事实与本轮测试目标。</div>
       </article>
 
-      <article class="tool" data-c="make">
+      <article class="tool" data-st="profile" data-c="make">
         <div class="t-head">
           <span class="t-ico ink"><svg viewBox="0 0 24 24"><rect x="3.5" y="4" width="17" height="16" rx="3.5" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="12" cy="10" r="2.8" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M7.5 18c1-2.3 2.6-3.4 4.5-3.4S15 15.7 16 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
           <div><h3>主页体检</h3><span class="t-sub">主页诊断 + 简介改写</span></div>
@@ -246,7 +246,7 @@
         <div class="t-hint">陌生人三秒看不懂你是干嘛的，笔记流量再好也接不住。</div>
       </article>
 
-      <article class="tool" data-c="make">
+      <article class="tool" data-st="topic" data-c="make">
         <div class="t-head">
           <span class="t-ico ink"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="16" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M3.5 9h17M8 4.5V9M8 20.5V9M14 13h4M14 17h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
           <div><h3>选题策划</h3><span class="t-sub">选题排期与系列规划</span></div>
@@ -260,7 +260,7 @@
         <div class="t-hint">系列化优于单篇爆款：系列让账号形成预期，单篇只是一次运气。</div>
       </article>
 
-      <article class="tool" data-c="make">
+      <article class="tool" data-st="comment" data-c="make">
         <div class="t-head">
           <span class="t-ico ink"><svg viewBox="0 0 24 24"><path d="M4 5.5h16v10H9l-5 4z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/><path d="M8 10h8M8 13h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
           <div><h3>评论区回复</h3><span class="t-sub">评论承接与置顶</span></div>
@@ -274,7 +274,7 @@
         <div class="t-hint">评论区是免费的选题矿，也是最容易被浪费的转化位。</div>
       </article>
 
-      <article class="tool" data-c="grow">
+      <article class="tool" data-st="conv" data-c="grow">
         <div class="t-head">
           <span class="t-ico amber"><svg viewBox="0 0 24 24"><path d="M4 19h16M6 19V5M11 19V9M16 19v-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M18 10l3-3-3-3" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           <div><h3>成交路径设计</h3><span class="t-sub">从内容到私信到下单</span></div>
@@ -316,7 +316,7 @@
         <div class="t-hint">平台每月十几条规则变更，跟不上的代价往往是白做一周。</div>
       </article>
 
-      <article class="tool" data-c="info">
+      <article class="tool" data-st="review" data-c="info">
         <div class="t-head">
           <span class="t-ico teal"><svg viewBox="0 0 24 24"><path d="M5 20V9m5 11V4m5 16v-7m4 7V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
           <div><h3>数据诊断与周期复盘</h3><span class="t-sub">和自己比，不和别人比</span></div>
@@ -359,7 +359,7 @@
         <h3>发一篇新笔记</h3>
         <p class="fc-desc">已经有了方向，追求单篇的执行质量与发布后的承接。</p>
         <div class="pipeline">
-          <span class="pipe">选题策划</span><i>→</i><span class="pipe">标题工坊</span><i>→</i><span class="pipe">评论区回复</span>
+          <span class="pipe">选题策划</span><i>→</i><span class="pipe">标题工坊</span><i>→</i><span class="pipe">评论回复</span>
         </div>
         <div class="fc-out">目标产出：标题有钩子、正文接得住第一眼、评论区有转化位</div>
       </div>
@@ -507,7 +507,7 @@
         </div>
         <pre class="pm-code" id="pmCode"></pre>
         <div class="pm-studio" id="pmStudio" hidden>
-          <span>这个工具在工作台里已经能直接跑，不用复制粘贴。</span>
+          <span class="pm-studio-txt">这个工具在工作台里已经能直接跑，不用复制粘贴。</span>
           <button class="pm-go" id="pmGo">打开工作台 →</button>
         </div>
         <div class="pm-foot">
@@ -630,7 +630,7 @@
       </details>
       <details>
         <summary>已经有稳定账号了还需要吗？</summary>
-        <p>可以只挑其中一段用。比如已有内容能力但缺转化，直接用成交路径设计；账号多了管不过来，用周期复盘和素材沉淀。</p>
+        <p>可以只挑其中一段用。比如已有内容能力但缺转化，直接用「成交路径」；账号多了管不过来，用周期复盘和素材沉淀。</p>
       </details>
     </div>
   </div>
@@ -659,7 +659,7 @@
   </div>
 </footer>
 
-<script src="app.js?v=3"></script>
-<script src="studio.js?v=3"></script>
+<script src="app.js?v=4"></script>
+<script src="studio.js?v=4"></script>
 </body>
 </html>
