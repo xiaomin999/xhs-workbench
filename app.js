@@ -129,16 +129,71 @@
           }).join('') +
         '</ul></div>' +
         '<div class="rm-block">' +
-          '<div class="rm-deliver"><strong>阶段成果（未留档不算完成）</strong><ul>' +
-            s.deliver.map(function (d) { return '<li>' + d + '</li>'; }).join('') +
-          '</ul></div>' +
+          '<div class="rm-deliver"><strong>阶段成果（勾选后自动存在本机）</strong><ul>' +
+            s.deliver.map(function (d, i) {
+              var key = k + '-' + i;
+              var on = isChecked(key);
+              return '<li><label class="dv-item' + (on ? ' is-done' : '') + '">' +
+                     '<input type="checkbox" data-k="' + key + '"' + (on ? ' checked' : '') + '>' +
+                     '<span>' + d + '</span></label></li>';
+            }).join('') +
+          '</ul>' +
+          '<div class="dv-note">勾选状态只存在这台浏览器里，换设备不同步，清缓存会丢。</div>' +
+          '<button class="dv-clear" data-stage="' + k + '">清空本阶段勾选</button>' +
+          '</div>' +
           '<div class="rm-ai"><b>AI 接手的部分 · </b>' + s.ai + '</div>' +
         '</div>' +
       '</div>';
   }
 
+  /* ---------- 阶段成果勾选 · localStorage ---------- */
+  var KEY_PROG = 'xhs.progress';
+  function loadProg() {
+    try { return JSON.parse(localStorage.getItem(KEY_PROG) || '{}'); } catch (e) { return {}; }
+  }
+  function saveProg(p) {
+    try { localStorage.setItem(KEY_PROG, JSON.stringify(p)); } catch (e) {}
+  }
+  function isChecked(key) { return !!loadProg()[key]; }
+  function stageDone(k) {
+    var p = loadProg(), n = 0;
+    (STAGES[k].deliver || []).forEach(function (_, i) { if (p[k + '-' + i]) n++; });
+    return n;
+  }
+
+  function badges() {
+    tabsEl.querySelectorAll('.rm-tab').forEach(function (t) {
+      var k = t.dataset.t;
+      var done = stageDone(k), total = STAGES[k].deliver.length;
+      var b = t.querySelector('.rm-badge');
+      if (!b) { b = document.createElement('span'); b.className = 'rm-badge'; t.appendChild(b); }
+      b.textContent = done + '/' + total;
+    });
+  }
+
+  panel.addEventListener('change', function (e) {
+    var cb = e.target.closest('input[type="checkbox"]');
+    if (!cb) return;
+    var p = loadProg();
+    if (cb.checked) { p[cb.dataset.k] = 1; } else { delete p[cb.dataset.k]; }
+    saveProg(p);
+    cb.closest('.dv-item').classList.toggle('is-done', cb.checked);
+    badges();
+  });
+
+  panel.addEventListener('click', function (e) {
+    var btn = e.target.closest('.dv-clear');
+    if (!btn) return;
+    var p = loadProg(), k = btn.dataset.stage, i;
+    for (i = 0; i < STAGES[k].deliver.length; i++) { delete p[k + '-' + i]; }
+    saveProg(p);
+    renderStage(k);
+    badges();
+  });
+
   if (panel && tabsEl) {
     renderStage(1);
+    badges();
     tabsEl.addEventListener('click', function (e) {
       var btn = e.target.closest('.rm-tab');
       if (!btn) return;
@@ -217,5 +272,377 @@
       copyBtn.textContent = '已复制';
       setTimeout(function () { copyBtn.textContent = '复制'; }, 1600);
     });
+  }
+
+  /* ---------- 指令库 ---------- */
+  var PM = [
+    {
+      g: '入口',
+      n: '开始小红书运营',
+      d: '让 AI 判断你现在在哪个阶段，只给眼前最该做的一件事。',
+      tip: '信息不确定就照实写「不知道」，它会反过来问你，不会瞎猜。',
+      t: [
+        '你是一位严谨的小红书运营教练。我要开始做小红书账号。',
+        '',
+        '我的情况：',
+        '- 类目：{{类目}}',
+        '- 目标人群：{{人群}}',
+        '- 要卖的产品/服务：{{产品}}',
+        '- 当前进度：{{现状}}',
+        '',
+        '请这样做：',
+        '1. 先判断我当前属于哪个阶段：起步与基线验证 / 产品×内容模型验证 / 爆款复制与稳定转化 / 规模化矩阵。',
+        '2. 告诉我眼前【只做一件事】是什么，以及它的完成标准：做到什么程度算完成、要留下什么成果。',
+        '3. 列出这一步必须由我人工判断的部分，和你可以先帮我执行的重复动作。',
+        '4. 我回复以后，你再判断是进入下一步，还是继续补当前这一步。',
+        '',
+        '规则：',
+        '- 需要真实数据但拿不到时，直接写「未获取」，不要用推测的数字顶替。',
+        '- 不承诺涨粉、不承诺流量、不给所谓爆款公式。',
+        '- 信息不足时先向我提问，一次最多问 3 个，并给我选项。'
+      ]
+    },
+    {
+      g: '采集与盯梢',
+      n: '笔记采集器',
+      d: '规划本周要采什么、怎么分类，产出可执行的采集清单。',
+      tip: '这一步只输出「该采什么」，真实数据请用合规渠道采集或人工整理。',
+      t: [
+        '你是我的小红书素材助理。请帮我规划本周的爆款素材采集。',
+        '',
+        '账号背景：类目 {{类目}}，人群 {{人群}}，产品 {{产品}}。',
+        '',
+        '请输出：',
+        '1. 我要采集的 5 组关键词（人群词 / 场景词 / 痛点词 / 商品词 / 长尾词），每组 5 个。',
+        '2. 优先追踪的 10 类对标博主（用特征描述，不要编造具体账号名）。',
+        '3. 采集字段清单：标题、点赞、收藏、评论数、首图形式、发布时间、话题标签、评论区高频问题。',
+        '4. 采集完怎么打标签分类，给我一张标签表的表头和示例行。',
+        '5. 提醒我：哪些字段属于「必须真实采集、不可推测」。',
+        '',
+        '约束：所有需要真实数据的字段一律标注「待采集」，禁止凭空生成假的爆款笔记案例。'
+      ]
+    },
+    {
+      g: '采集与盯梢',
+      n: '博主笔记记录器',
+      d: '搭一张竞争对手监控台账，把 S / A / B 三级对手管起来。',
+      tip: '把这张表复制到表格软件，之后每周固定 20 分钟补一次就够。',
+      t: [
+        '帮我建立一套竞争对手监控台账。',
+        '',
+        '背景：类目 {{类目}}，人群 {{人群}}，产品 {{产品}}，当前进度 {{现状}}。',
+        '',
+        '请输出：',
+        '1. S / A / B 三级对手的划分标准。S=头部玩家，A=同量级对手，B=快速上升新星。每级给 3 条能直接判断的硬指标（粉丝量级、互动率、更新频率等）。',
+        '2. 一张监控表结构：账号、等级、最近更新时间、本周更新篇数、笔记主题、24 小时赞藏、是否触发阈值（>50 赞）、备注。',
+        '3. 每周怎么复盘这张表：要盯哪 3 个信号，看到信号后做什么动作。',
+        '4. 特别提醒我如何记录「没爆」的笔记，以及如何用它总结市场边界。',
+        '',
+        '约束：不要生成虚假账号和虚假数据，示例一律用占位符。不要提供违规抓取教程。'
+      ]
+    },
+    {
+      g: '采集与盯梢',
+      n: '博主粉丝记录器',
+      d: '设定增长阈值与报警后的动作，提前发现潜力新星。',
+      tip: '阈值别拍脑袋，按粉丝量级分层设定，否则小号永远不报警、大号天天报警。',
+      t: [
+        '帮我设计一套博主粉丝增长监控方案。类目 {{类目}}，人群 {{人群}}。',
+        '',
+        '请输出：',
+        '1. 监控名单的分层建议：新星几个、同级几个、头部几个，以及选人标准。',
+        '2. 日增阈值设定建议：按不同粉丝量级分别给数值，并说明触发报警后我要做的 3 个动作。',
+        '3. 增长拐点回溯表模板：日期、当日粉丝增量、当日发布内容、推断原因（标注为「待验证」）、是否跟进。',
+        '4. 把新星账号发展成合作对象的 3 种开口方式，附话术要点。',
+        '',
+        '约束：不提供任何抓取工具教程，只给人工可读的流程、表格和话术。'
+      ]
+    },
+    {
+      g: '内容生产',
+      n: '标题工坊',
+      d: '一次给 5 版标题，并说明每版在钓什么人。',
+      tip: '把「测试目标」写清楚，标题才有判断标准；不写就只能比谁更顺眼。',
+      t: [
+        '你是小红书标题编辑。请帮我的笔记起标题。',
+        '',
+        '【笔记正文】',
+        '（粘贴正文）',
+        '',
+        '【测试目标】（本轮要验证什么：选题反应 / 人群 / 卖点 / 场景）',
+        '（填写）',
+        '',
+        '背景：类目 {{类目}}，人群 {{人群}}，产品 {{产品}}。',
+        '',
+        '输出要求：',
+        '1. 给 5 个标题，每个标明钩子类型（痛点 / 反常识 / 对比 / 数字 / 场景 / 身份）以及关键词埋点位置。',
+        '2. 逐条说明它试图吸引什么人点击。',
+        '3. 如果我有原标题，先诊断它为什么没被点开，再给具体改法。',
+        '4. 最后推荐 1 个作为本轮测试首选，并说明推荐理由。',
+        '',
+        '约束：标题必须符合商品事实，不做夸大承诺，禁用「震惊 / 速看 / 马上删」这类词。'
+      ]
+    },
+    {
+      g: '内容生产',
+      n: '主页体检',
+      d: '逐项检查主页，并给出可直接替换的简介。',
+      tip: '陌生人三秒看不懂你是干嘛的，笔记流量再好也接不住 —— 这是性价比最高的一次改动。',
+      t: [
+        '请给我的小红书主页做体检并改写。',
+        '',
+        '我的账号定位 / 提供的服务：（填写）',
+        '目标用户：{{人群}}',
+        '当前现状：{{现状}}',
+        '',
+        '第一部分 体检：按 头像 / 昵称 / 简介 / 三条置顶 / 内容风格一致性 五项逐项检查，',
+        '每项给出「当前问题 + 会造成什么影响 + 怎么改」。',
+        '',
+        '第二部分 改写：',
+        '- 一句话简介（≤ 20 字，必须说清「服务谁 + 解决什么」）。',
+        '- 三条置顶的职责分工：一条负责转化、一条建立信任、一条做人设，各给内容方向。',
+        '',
+        '第三部分 自查：陌生人打开主页 3 秒能否看懂我是干嘛的，给出你的判断依据。',
+        '',
+        '约束：不夸大资历，不承诺效果，不改到认不出原来的账号。'
+      ]
+    },
+    {
+      g: '内容生产',
+      n: '选题策划',
+      d: '按产品 × 人群 × 场景组合，排出 7 天计划。',
+      tip: '一次只验证一个变量，否则数据出来你不知道是谁起作用了。',
+      t: [
+        '帮我做内容选题计划。',
+        '',
+        '产品 / 服务：{{产品}}，人群：{{人群}}，类目：{{类目}}。',
+        '已有表现最好的内容角度：（没有就写「暂无」）',
+        '',
+        '请输出：',
+        '1. 先给 3 组「产品 × 人群 × 场景」组合，每组标注这一组要验证的假设。',
+        '2. 7 天选题计划表：日期 / 选题 / 角度 / 本条要验证什么 / 成功信号（给方向性的数值区间）。',
+        '3. 标出哪几条属于同一系列，方便连续发布形成预期。',
+        '4. 给 5 条「评论区高频问题 → 选题」的转化示例。',
+        '',
+        '约束：同一批选题里只验证一个变量，不要把多个变量混在一起测。'
+      ]
+    },
+    {
+      g: '内容生产',
+      n: '评论区回复',
+      d: '批量处理评论、设计置顶，并把问题转成下一批选题。',
+      tip: '评论区是免费的选题矿，也是最容易被浪费的转化位。',
+      t: [
+        '帮我处理评论区。产品 / 服务：{{产品}}，人群：{{人群}}。',
+        '',
+        '【评论列表】',
+        '（粘贴评论）',
+        '',
+        '请输出：',
+        '1. 逐条回复，每条控制 2 句以内，三种口径分开给：友好答疑 / 引导私信 / 温和转化。语气自然，不要 AI 腔。',
+        '2. 设计 1 条置顶评论：目的是引导到商品或私信，给出文案和放置时机。',
+        '3. 把高频问题归成 3 类，并各自转成 1 个下一批可发的选题。',
+        '',
+        '约束：回复不虚构产品功效；涉及价格、售后、敏感问题标注「需人工确认」。'
+      ]
+    },
+    {
+      g: '策略与转化',
+      n: '成交路径设计',
+      d: '按客单价设计从内容到私信到下单的完整链路。',
+      tip: '低客单直接成交，高客单先私信建立信任，别用同一条路径打两类产品。',
+      t: [
+        '帮我设计从小红书内容到成交的路径。',
+        '',
+        '产品：{{产品}}，客单价：（填写），人群：{{人群}}。',
+        '',
+        '请输出：',
+        '1. 先判断这个客单价适合的成交方式（直接成交 / 私信建立信任 / 引导至其他触点），并说明理由。',
+        '2. 完整路径图：内容 → 钩子 → 承接动作 → 信任建立 → 下单。每一步写明目的和用户在想什么。',
+        '3. 针对「有人点商品但没成交」，列出 5 个常见断点，并按排查先后顺序排列。',
+        '4. 给我一个 7 天成交测试的判断标准：什么样算跑通，什么样算没跑通。',
+        '',
+        '约束：不承诺收益，不设计违反平台规则的引流话术。'
+      ]
+    },
+    {
+      g: '策略与转化',
+      n: '策略专家',
+      d: '先追问、再给方案，输出带取舍的几条路。',
+      tip: '通用大模型最容易在这个环节胡编，所以要求它先问你要信息。',
+      t: [
+        '你是小红书营销策略顾问。',
+        '',
+        '背景：类目 {{类目}}，产品 {{产品}}，人群 {{人群}}，当前进度 {{现状}}。',
+        '我的问题：（填写具体问题）',
+        '',
+        '要求：',
+        '1. 回答前先列出你还缺哪些信息，一次最多问 3 个，每个都要给我可选项。',
+        '2. 信息足够后，按这个结构输出：判断依据 → 可选方案（2-3 个，各含取舍） → 你推荐哪个 → 执行步骤 → 验收标准。',
+        '3. 明确区分「已经能确定的判断」和「还需要数据验证的假设」。',
+        '',
+        '约束：涉及平台规则，如果超过你的知识范围，标注「需核对最新规则」，不要编造条款或惩罚措施。'
+      ]
+    },
+    {
+      g: '情报与复盘',
+      n: '情报站',
+      d: '搭一套长期盯平台更新的流程和台账。',
+      tip: '别让 AI 凭记忆列公告日期和条款，那玩意天天变，信它不如去官方核对。',
+      t: [
+        '帮我建立一套平台信息更新的跟踪流程。',
+        '',
+        '我做的是：{{类目}}，产品 {{产品}}。',
+        '',
+        '请输出：',
+        '1. 要长期关注的信息分类（规则公告 / 工具变化 / 类目政策 / 违规红线 / 官方活动），每类给出为什么值得盯。',
+        '2. 每条更新进来后的 4 步处理法：摘要 → 是否影响我 → 要改的动作 → 记到哪里。',
+        '3. 一张月度信息台账模板：日期、来源、摘要、影响判断、我的动作、完成情况。',
+        '4. 哪些变化需要立刻停下手上的动作去调整，给一个判断标准。',
+        '',
+        '约束：不要凭记忆罗列具体公告日期或条款，需要具体条款时标注「请到官方渠道核对」。'
+      ]
+    },
+    {
+      g: '情报与复盘',
+      n: '数据诊断与周期复盘',
+      d: '和自己的基线比，输出加码 / 观察 / 淘汰三张清单。',
+      tip: '拿别人的播放量硬套自己的账号，只会得出错误结论。',
+      t: [
+        '帮我做一次数据复盘。',
+        '',
+        '账号类目：{{类目}}，产品 {{产品}}，人群 {{人群}}。',
+        '',
+        '【本轮数据】',
+        '（粘贴近 7-14 天的笔记数据：曝光、点击率、互动、商品点击、成交）',
+        '',
+        '请输出：',
+        '1. 先和我自己账号的同类内容比基线，不要和行业大号比。给出分布：高于基线 / 接近基线 / 连续偏弱。',
+        '2. 三类分别给建议动作：继续加码 / 微调 / 暂停。',
+        '3. 本轮最值得保留的 1 个方法，和最该改掉的 1 个动作，都要说理由。',
+        '4. 输出下一轮的 3 条计划，每条带明确的验证目标。',
+        '',
+        '约束：数据不足就直说「数据不足以判断」，不要用感觉下结论，不要美化结果。'
+      ]
+    }
+  ];
+
+  var KEY_VARS = 'xhs.vars';
+  var VAR_INPUTS = { '类目': 'vCat', '人群': 'vAud', '产品': 'vProd', '现状': 'vStatus' };
+  var VARS = {};
+  try { VARS = JSON.parse(localStorage.getItem(KEY_VARS) || '{}') || {}; } catch (e) { VARS = {}; }
+
+  var pList = document.getElementById('pmList');
+  var pTitle = document.getElementById('pmTitle');
+  var pDesc = document.getElementById('pmDesc');
+  var pCode = document.getElementById('pmCode');
+  var pTip = document.getElementById('pmTip');
+  var pCopy = document.getElementById('pmCopy');
+  var pReset = document.getElementById('pmReset');
+  var cur = 0;
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+    });
+  }
+  function renderHTML(t) {
+    var out = t.replace(/\{\{([^}]+)\}\}/g, function (m, k) {
+      var v = (VARS[k] || '').trim();
+      return v ? '\u0001' + v + '\u0002' : '\u0003' + k + '\u0004';
+    });
+    out = esc(out);
+    return out
+      .replace(/\u0001/g, '<span class="ph ok">').replace(/\u0002/g, '</span>')
+      .replace(/\u0003/g, '<span class="ph">').replace(/\u0004/g, '</span>');
+  }
+  function plainText(t) {
+    return t.replace(/\{\{([^}]+)\}\}/g, function (m, k) {
+      var v = (VARS[k] || '').trim();
+      return v || ('{{' + k + '}}');
+    });
+  }
+
+  function renderList() {
+    if (!pList) return;
+    var html = '', lastG = '';
+    PM.forEach(function (p, i) {
+      if (p.g !== lastG) { html += '<div class="pm-group">' + esc(p.g) + '</div>'; lastG = p.g; }
+      html += '<button class="pm-item' + (i === cur ? ' is-on' : '') + '" data-i="' + i + '">' +
+              '<b>' + esc(p.n) + '</b><span>' + esc(p.g) + '</span></button>';
+    });
+    pList.innerHTML = html;
+  }
+
+  function renderPanel() {
+    if (!pCode) return;
+    var p = PM[cur];
+    pTitle.textContent = p.n;
+    pDesc.textContent = p.d;
+    pCode.innerHTML = renderHTML(p.t.join('\n'));
+    pTip.textContent = p.tip;
+  }
+
+  function saveVars() {
+    try { localStorage.setItem(KEY_VARS, JSON.stringify(VARS)); } catch (e) {}
+  }
+
+  if (pList && pCode) {
+    Object.keys(VAR_INPUTS).forEach(function (k) {
+      var el = document.getElementById(VAR_INPUTS[k]);
+      if (!el) return;
+      el.value = VARS[k] || '';
+      el.addEventListener('input', function () {
+        VARS[k] = el.value;
+        saveVars();
+        renderPanel();
+      });
+    });
+
+    renderList();
+    renderPanel();
+
+    pList.addEventListener('click', function (e) {
+      var btn = e.target.closest('.pm-item');
+      if (!btn) return;
+      cur = +btn.dataset.i;
+      pList.querySelectorAll('.pm-item').forEach(function (b) { b.classList.remove('is-on'); });
+      btn.classList.add('is-on');
+      renderPanel();
+    });
+
+    if (pCopy) {
+      pCopy.addEventListener('click', function () {
+        var text = plainText(PM[cur].t.join('\n'));
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        pCopy.textContent = '已复制';
+        pCopy.classList.add('is-done');
+        setTimeout(function () {
+          pCopy.textContent = '复制指令';
+          pCopy.classList.remove('is-done');
+        }, 1600);
+      });
+    }
+
+    if (pReset) {
+      pReset.addEventListener('click', function () {
+        VARS = {};
+        saveVars();
+        Object.keys(VAR_INPUTS).forEach(function (k) {
+          var el = document.getElementById(VAR_INPUTS[k]);
+          if (el) el.value = '';
+        });
+        renderPanel();
+      });
+    }
   }
 })();
